@@ -16,8 +16,7 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
   @override
   void initState() {
     super.initState();
-    // FIX: Use Future.microtask to avoid "setState during build" error.
-    // This allows the build cycle to finish before the provider notifies listeners.
+    // Use Future.microtask to avoid "setState during build" error.
     _communitiesFuture = Future.microtask(() =>
         Provider.of<CommunityFeedProvider>(context, listen: false).fetchAllCommunities()
     );
@@ -50,6 +49,7 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
           }
 
           final allCommunities = snapshot.data!;
+          // Create a set of IDs for O(1) lookup
           final joinedIds = provider.joinedCommunities.map((c) => c.id).toSet();
 
           // Map the fetched list to reflect the current joined status from the provider
@@ -80,9 +80,28 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              community.name,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    community.name,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                  ),
+                ),
+                // Display member count badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${community.memberCount} members',
+                    style: TextStyle(fontSize: 12, color: Colors.indigo.shade700, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -95,11 +114,15 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   if (community.isJoined) {
-                    provider.leaveCommunity(community);
+                    // FIX: Pass ID string, not object
+                    provider.leaveCommunity(community.id);
                   } else {
-                    provider.joinCommunity(community);
+                    // FIX: Pass ID string, not object
+                    provider.joinCommunity(community.id);
                   }
+
                   // Force a rebuild of the FutureBuilder to refresh the list state
+                  // immediately after the button press
                   setState(() {
                     _communitiesFuture = provider.fetchAllCommunities();
                   });

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 /// Represents a local language community that users can join.
@@ -11,7 +12,7 @@ class Community {
   final bool isJoined;
   final int memberCount;
   final String languageCode; // e.g., 'lg' for Luganda, 'sw' for Swahili
-  final String? profilePictureUrl; // NEW: URL for the community's profile picture
+  final String? profilePictureUrl; // URL for the community's profile picture
 
   const Community({
     required this.id,
@@ -21,10 +22,28 @@ class Community {
     this.isJoined = false,
     this.memberCount = 0,
     required this.languageCode,
-    this.profilePictureUrl, // NEW
+    this.profilePictureUrl,
   });
 
-  /// Factory constructor to create a Community from JSON (e.g., Firestore data).
+  /// Factory constructor to create a Community from Firestore DocumentSnapshot.
+  /// This handles the extraction of data and ID safely.
+  factory Community.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+
+    return Community(
+      id: doc.id, // Use the document ID as the community ID
+      name: data['name'] as String? ?? 'Unnamed Community',
+      description: data['description'] as String? ?? 'No description available.',
+      adminId: data['adminId'] as String? ?? 'system',
+      // 'isJoined' is client-side state, defaults to false until we check user data
+      isJoined: false,
+      memberCount: (data['memberCount'] as num?)?.toInt() ?? 0,
+      languageCode: data['languageCode'] as String? ?? 'en',
+      profilePictureUrl: data['profilePictureUrl'] as String?,
+    );
+  }
+
+  /// Factory constructor to create a Community from JSON (legacy/API use).
   factory Community.fromJson(Map<String, dynamic> json) {
     return Community(
       id: json['id'] as String,
@@ -34,21 +53,20 @@ class Community {
       isJoined: json['isJoined'] as bool? ?? false,
       memberCount: json['memberCount'] as int? ?? 0,
       languageCode: json['languageCode'] as String? ?? 'en',
-      profilePictureUrl: json['profilePictureUrl'] as String?, // NEW
+      profilePictureUrl: json['profilePictureUrl'] as String?,
     );
   }
 
   /// Converts the Community model to a JSON map for storage (e.g., Firestore).
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'name': name,
       'description': description,
       'adminId': adminId,
       'memberCount': memberCount,
       'languageCode': languageCode,
-      'profilePictureUrl': profilePictureUrl, // NEW
-      // Note: 'isJoined' is typically a transient/local state and not stored in the community document itself.
+      'profilePictureUrl': profilePictureUrl,
+      // Note: We don't store 'id' or 'isJoined' inside the document data usually
     };
   }
 
@@ -61,7 +79,7 @@ class Community {
     bool? isJoined,
     int? memberCount,
     String? languageCode,
-    String? profilePictureUrl, // NEW
+    String? profilePictureUrl,
   }) {
     return Community(
       id: id ?? this.id,
@@ -71,7 +89,7 @@ class Community {
       isJoined: isJoined ?? this.isJoined,
       memberCount: memberCount ?? this.memberCount,
       languageCode: languageCode ?? this.languageCode,
-      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl, // NEW
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
     );
   }
 
@@ -86,9 +104,16 @@ class Community {
         other.adminId == adminId &&
         other.languageCode == languageCode &&
         other.memberCount == memberCount &&
-        other.profilePictureUrl == profilePictureUrl; // NEW
+        other.profilePictureUrl == profilePictureUrl;
   }
 
   @override
-  int get hashCode => id.hashCode ^ name.hashCode ^ description.hashCode ^ adminId.hashCode ^ languageCode.hashCode ^ memberCount.hashCode ^ profilePictureUrl.hashCode; // NEW
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      adminId.hashCode ^
+      languageCode.hashCode ^
+      memberCount.hashCode ^
+      profilePictureUrl.hashCode;
 }

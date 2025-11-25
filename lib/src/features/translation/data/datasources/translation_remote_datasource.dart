@@ -10,7 +10,7 @@ abstract class TranslationRemoteDataSource {
 
 // Collection names for clarity
 const String kTranslationCollection = 'translations';
-const String kUserVotesCollection = 'user_votes'; // Using the new collection name
+const String kUserVotesCollection = 'user_votes';
 
 class TranslationRemoteDataSourceImpl implements TranslationRemoteDataSource {
   final FirebaseFirestore firestore;
@@ -19,39 +19,9 @@ class TranslationRemoteDataSourceImpl implements TranslationRemoteDataSource {
 
   CollectionReference get _translationsCollection => firestore.collection(kTranslationCollection);
 
-  // Helper method to convert Firestore document to Entity (Data Transfer Object)
+  // Helper method to convert Firestore document to Entity
   TranslationEntry _translationFromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>?;
-    if (data == null) {
-      throw Exception("Document data is null for ID: ${doc.id}");
-    }
-
-    final score = (data['score'] as num?)?.toInt() ?? 0;
-
-    return TranslationEntry(
-      id: doc.id,
-      userId: data['userId'] as String? ?? '',
-
-      // Core Text Fields
-      sourceText: data['sourceText'] as String? ?? '',
-      translatedText: data['translatedText'] as String? ?? '',
-      sourceLang: data['sourceLang'] as String? ?? '',
-      targetLang: data['targetLang'] as String? ?? '',
-
-      // ML Metadata Fields
-      context: data['context'] as String? ?? '',
-      dialect: data['dialect'] as String? ?? '',
-
-      // Score/Vote Fields
-      score: score,
-      // isVotedByUser is determined externally (in Provider/Repository) by checking the user_votes collection
-      isVotedByUser: false,
-
-      // Timestamp Field
-      createdAt: (data['timestamp'] is Timestamp)
-          ? (data['timestamp'] as Timestamp).toDate()
-          : DateTime.now().toUtc(), // Fallback for missing timestamp
-    );
+    return TranslationEntry.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>);
   }
 
   @override
@@ -67,101 +37,109 @@ class TranslationRemoteDataSourceImpl implements TranslationRemoteDataSource {
       'dialect': entry.dialect,
 
       'status': 'Pending',
-      'score': 0,
+      'score': 0,       // Net score
+      'upvotes': 0,     // Explicit counter
+      'downvotes': 0,   // Explicit counter
       'timestamp': FieldValue.serverTimestamp(),
     });
   }
 
-  // --- Implement Real-Time Stream ---
   @override
   Stream<List<TranslationEntry>> getCommunityTranslations() {
+    debugPrint("🔌 Stream connecting to DB: ${firestore.app.name} (ID: ${firestore.databaseId})");
+
     return _translationsCollection
         .orderBy('timestamp', descending: true)
         .limit(50)
         .snapshots()
         .map((snapshot) {
-      // NOTE: isVotedByUser will be false here. The Repository must merge vote data.
+      if (snapshot.docs.isEmpty) {
+        debugPrint("⚠️ No translations found in collection '$kTranslationCollection'.");
+      }
       return snapshot.docs.map(_translationFromFirestore).toList();
     });
   }
 
-  // --- Transactional Score Update (Vote Logic - Provided by User) ---
+  // --- TRANSACTIONAL VOTE LOGIC ---
   @override
   Future<void> updateScore({
     required String translationId,
     required String userId,
-    required int voteValue, // The intent: +1 (upvote) or -1 (downvote)
+    required int voteValue, // 1 for Upvote, -1 for Downvote
   }) async {
     final translationRef = _translationsCollection.doc(translationId);
-    // Reference the user's vote document in the dedicated collection
     final userVotesRef = firestore.collection(kUserVotesCollection).doc(userId);
 
     await firestore.runTransaction((transaction) async {
       final userVotesSnapshot = await transaction.get(userVotesRef);
 
-      // Extract existing votes map
+      // 1. Get existing vote map for this user
       Map<String, int> votes = {};
       if (userVotesSnapshot.exists) {
         final data = userVotesSnapshot.data() as Map<String, dynamic>?;
         if (data != null && data['votes'] is Map) {
-          // votes is stored as a Map<String, dynamic>, convert values to int
           votes = Map<String, int>.from(data['votes'] as Map).map((k, v) => MapEntry(k, v as int));
         }
       }
 
-      // Get the current vote status for this specific translation
-      final currentVote = votes[translationId] ?? 0;
-      int scoreChange = 0; // The calculated delta to apply to the translation's score
+      // Current vote status: 0 = None, 1 = Upvoted, -1 = Downvoted
+      final int previousVote = votes[translationId] ?? 0;
 
-      if (voteValue == 1) { // User is trying to Upvote
-        if (currentVote == 1) {
-          // Unvote Upvote: score down by 1, remove vote entry
-          scoreChange = -1;
+      int upChange = 0;
+      int downChange = 0;
+
+      // --- LOGIC MATRIX ---
+
+      // SCENARIO A: User clicked UPVOTE (+1)
+      if (voteValue == 1) {
+        if (previousVote == 1) {
+          // User was already Upvoted -> TOGGLE OFF (Remove Upvote)
+          upChange = -1;
           votes.remove(translationId);
-          debugPrint('Transaction: Upvote UNVOTED. Score change: $scoreChange');
-        } else if (currentVote == -1) {
-          // Switch Downvote to Upvote: score up by 2, set vote to 1
-          scoreChange = 2;
+        } else if (previousVote == -1) {
+          // User was Downvoted -> SWITCH (Remove Down, Add Up)
+          downChange = -1;
+          upChange = 1;
           votes[translationId] = 1;
-          debugPrint('Transaction: Switched from DOWN to UP. Score change: $scoreChange');
-        } else { // currentVote == 0
-          // New Upvote: score up by 1, set vote to 1
-          scoreChange = 1;
+        } else {
+          // User had no vote -> NEW UPVOTE
+          upChange = 1;
           votes[translationId] = 1;
-          debugPrint('Transaction: New UPVOTE. Score change: $scoreChange');
         }
-      } else if (voteValue == -1) { // User is trying to Downvote
-        if (currentVote == -1) {
-          // Unvote Downvote: score up by 1, remove vote entry
-          scoreChange = 1;
-          votes.remove(translationId);
-          debugPrint('Transaction: Downvote UNVOTED. Score change: $scoreChange');
-        } else if (currentVote == 1) {
-          // Switch Upvote to Downvote: score down by 2, set vote to -1
-          scoreChange = -2;
-          votes[translationId] = -1;
-          debugPrint('Transaction: Switched from UP to DOWN. Score change: $scoreChange');
-        } else { // currentVote == 0
-          // New Downvote: score down by 1, set vote to -1
-          scoreChange = -1;
-          votes[translationId] = -1;
-          debugPrint('Transaction: New DOWNVOTE. Score change: $scoreChange');
-        }
-      } else {
-        throw Exception("Invalid vote value. Must be 1 or -1.");
       }
 
-      // 1. Update the translation score in the main document atomically
-      if (scoreChange != 0) {
+      // SCENARIO B: User clicked DOWNVOTE (-1)
+      else if (voteValue == -1) {
+        if (previousVote == -1) {
+          // User was already Downvoted -> TOGGLE OFF (Remove Downvote)
+          downChange = -1;
+          votes.remove(translationId);
+        } else if (previousVote == 1) {
+          // User was Upvoted -> SWITCH (Remove Up, Add Down)
+          upChange = -1;
+          downChange = 1;
+          votes[translationId] = -1;
+        } else {
+          // User had no vote -> NEW DOWNVOTE
+          downChange = 1;
+          votes[translationId] = -1;
+        }
+      }
+
+      // 2. Update the Translation Document (Counters)
+      if (upChange != 0 || downChange != 0) {
         transaction.update(translationRef, {
-          'score': FieldValue.increment(scoreChange),
+          'upvotes': FieldValue.increment(upChange),
+          'downvotes': FieldValue.increment(downChange),
+          'score': FieldValue.increment(upChange - downChange),
         });
       }
 
-      // 2. Update the user's vote record (using merge: true if setting, or implicit merge if document doesn't exist)
+      // 3. Update the User's Vote History
       transaction.set(userVotesRef, {'votes': votes}, SetOptions(merge: true));
-    });
 
-    debugPrint('Successfully updated score for $translationId. Score change was enforced transactionally.');
+      // MOVED INSIDE the transaction block so variables are accessible
+      debugPrint("✅ Vote transaction complete. UpChange: $upChange, DownChange: $downChange");
+    });
   }
 }

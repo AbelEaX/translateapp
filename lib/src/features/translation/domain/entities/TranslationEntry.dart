@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <-- CRITICAL: Required for Timestamp and DocumentSnapshot
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TranslationEntry extends Equatable {
   final String? id;
@@ -13,9 +13,14 @@ class TranslationEntry extends Equatable {
   final String context;
   final String dialect;
 
-  // --- COMMUNITY SCORE (Updated) ---
-  final int score;               // Total upvotes - downvotes
-  final bool isVotedByUser;     // Tracks if the current user has voted on this item
+  // --- COMMUNITY SCORE ---
+  final int score;           // Net Score (Up - Down)
+  final int upvotes;         // NEW: Count of thumbs up
+  final int downvotes;       // NEW: Count of thumbs down
+
+  // NEW: 1 = Up, -1 = Down, 0 = None
+  final int userVoteStatus;
+
   final DateTime createdAt;
 
   const TranslationEntry({
@@ -27,46 +32,48 @@ class TranslationEntry extends Equatable {
     required this.targetLang,
     required this.context,
     required this.dialect,
-    this.score = 0,             // Default score is 0
-    this.isVotedByUser = false, // Default: user hasn't voted
+    this.score = 0,
+    this.upvotes = 0,
+    this.downvotes = 0,
+    this.userVoteStatus = 0,
     required this.createdAt,
   });
 
-  // --- CRITICAL FACTORY METHOD: Maps Firestore fields to the Dart object ---
   factory TranslationEntry.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> snapshot, [String? currentUserId]
+      DocumentSnapshot<Map<String, dynamic>> snapshot,
+      [Map<String, int>? userVotesMap] // Optional: Pass user's vote map here if available
       ) {
-    // Get the data map or an empty map if it's null
     final data = snapshot.data() ?? {};
-
-    // 1. Handle Timestamp: Convert Firestore's Timestamp object to Dart's DateTime
     final Timestamp timestamp = data['timestamp'] ?? Timestamp.now();
 
-    // 2. Handle Score: Safely cast the score field, defaulting to 0
-    final int score = (data['score'] is int) ? data['score'] as int : 0;
+    // Safely cast numbers
+    final int score = (data['score'] as num?)?.toInt() ?? 0;
+    final int upvotes = (data['upvotes'] as num?)?.toInt() ?? 0;
+    final int downvotes = (data['downvotes'] as num?)?.toInt() ?? 0;
 
-    // 3. Placeholder for User Vote (Will need implementation later)
-    bool voted = false;
+    // Determine user status if map provided, otherwise 0
+    int myVote = 0;
+    if (userVotesMap != null && userVotesMap.containsKey(snapshot.id)) {
+      myVote = userVotesMap[snapshot.id] ?? 0;
+    }
 
     return TranslationEntry(
       id: snapshot.id,
-      // CRITICAL: These keys must EXACTLY match your Firestore document keys (e.g., 'sourceText', 'userId', etc.)
       userId: data['userId'] as String? ?? 'anonymous',
       sourceLang: data['sourceLang'] as String? ?? 'Unknown',
       targetLang: data['targetLang'] as String? ?? 'Unknown',
       sourceText: data['sourceText'] as String? ?? '',
       translatedText: data['translatedText'] as String? ?? '',
       score: score,
+      upvotes: upvotes,
+      downvotes: downvotes,
       context: data['context'] as String? ?? 'N/A',
       dialect: data['dialect'] as String? ?? 'N/A',
-      createdAt: timestamp.toDate(), // Use the converted DateTime
-      isVotedByUser: voted,
+      createdAt: timestamp.toDate(),
+      userVoteStatus: myVote,
     );
   }
 
-
-  // --- CopyWith Method ---
-  // Essential for state updates in Provider
   TranslationEntry copyWith({
     String? id,
     String? userId,
@@ -77,7 +84,9 @@ class TranslationEntry extends Equatable {
     String? context,
     String? dialect,
     int? score,
-    bool? isVotedByUser,
+    int? upvotes,
+    int? downvotes,
+    int? userVoteStatus,
     DateTime? createdAt,
   }) {
     return TranslationEntry(
@@ -90,11 +99,16 @@ class TranslationEntry extends Equatable {
       context: context ?? this.context,
       dialect: dialect ?? this.dialect,
       score: score ?? this.score,
-      isVotedByUser: isVotedByUser ?? this.isVotedByUser,
+      upvotes: upvotes ?? this.upvotes,
+      downvotes: downvotes ?? this.downvotes,
+      userVoteStatus: userVoteStatus ?? this.userVoteStatus,
       createdAt: createdAt ?? this.createdAt,
     );
   }
 
   @override
-  List<Object?> get props => [id, userId, sourceText, translatedText, context, dialect, score, isVotedByUser, createdAt];
+  List<Object?> get props => [
+    id, userId, sourceText, translatedText, context, dialect,
+    score, upvotes, downvotes, userVoteStatus, createdAt
+  ];
 }

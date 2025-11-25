@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:provider/provider.dart';
+import 'package:translate/src/core/utils/community_seeder.dart';
+import 'package:translate/src/features/auth/presentation/providers/auth_provider.dart';
+import 'package:translate/src/features/community/presentation/screens/leaderboard_screen.dart';
+import 'package:translate/src/features/translation/presentation/screens/contributions_screen.dart';
 
-// Import the domain entity and data model
+// Import Entity & Model
 import '../../domain/entities/user_entity.dart';
 import '../../data/models/user_model.dart';
+
+// Import Sub-Screens
+import 'personal_info_screen.dart';
+import 'settings_screen.dart';
+import 'support_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -14,80 +25,125 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  // Use UserEntity as the type returned by the Future
   late Future<UserEntity> _userProfileFuture;
+
+  // Theme Constants (Matching Community Feed)
+  final Color _primaryBlue = const Color(0xFF1E3A8A);
+  final Color _amberAccent = Colors.amber;
 
   @override
   void initState() {
     super.initState();
-    // Start the asynchronous data fetching when the widget is initialized
     _userProfileFuture = _fetchUserProfile();
   }
 
+  // Helper to get the current UID safely
   String get _currentUserId {
-    // This safely retrieves the current user's ID.
     final user = FirebaseAuth.instance.currentUser;
-    return user?.uid ?? 'anonymous_user_id';
+    return user?.uid ?? '';
   }
 
-  // Data Fetching Logic (Returns UserEntity, created by UserModel.fromFirestore)
   Future<UserEntity> _fetchUserProfile() async {
     final userId = _currentUserId;
-    // Targeting the 'users/{userId}' document in Firestore
+    if (userId.isEmpty) {
+      return const UserModel(id: 'guest', displayName: 'Guest', points: 0);
+    }
+
     final docRef = FirebaseFirestore.instance.collection('users').doc(userId);
 
     try {
       final docSnapshot = await docRef.get();
       if (docSnapshot.exists) {
-        // Use the UserModel to map the snapshot into a UserEntity
         return UserModel.fromFirestore(docSnapshot);
       } else {
-        // Document doesn't exist yet, create a default profile in Firestore
-        final defaultUser = UserModel(
-          id: userId,
-          displayName: 'New User',
-          points: 0,
+        final authUser = FirebaseAuth.instance.currentUser;
+        return UserModel(
+            id: userId,
+            displayName: authUser?.displayName ?? 'New User',
+            email: authUser?.email,
+            points: 0
         );
-        // Create the document with default values
-        await docRef.set({
-          'displayName': defaultUser.displayName,
-          'points': defaultUser.points,
-        });
-        return defaultUser;
       }
     } catch (e) {
-      // Handle potential errors during fetching (e.g., network issues)
       debugPrint('Error fetching user profile: $e');
-      // Return a fallback entity on error
-      return const UserEntity(id: 'error', displayName: 'Error Loading Profile', points: -1);
+      return const UserModel(id: 'error', displayName: 'Error', points: 0);
     }
+  }
+
+  // --- SIGN OUT LOGIC ---
+
+  void _handleSignOut(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    try {
+      await authProvider.signOut();
+      // Note: The AuthGate (if used in main.dart) will automatically redirect
+      // to LoginScreen when the user state becomes null.
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error signing out: $e")));
+      }
+    }
+  }
+
+  // [ADDED] Confirmation Dialog
+  void _showSignOutConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            "Sign Out",
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: const Text(
+            "Are you sure you want to log out of your account?",
+            style: TextStyle(fontSize: 15, color: Colors.black87),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                "Cancel",
+                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop(); // Close dialog
+                _handleSignOut(context); // Perform sign out
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red.shade400),
+              child: const Text(
+                "Sign Out",
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _navigateTo(BuildContext context, Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      // Use FutureBuilder expecting the UserEntity to manage loading state
       body: FutureBuilder<UserEntity>(
         future: _userProfileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Loading state
-            return const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF4C579E),
-                ));
+            return Center(child: CircularProgressIndicator(color: _primaryBlue));
           } else if (snapshot.hasError) {
-            // Error state
-            return Center(
-                child: Text('Error: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red)));
+            return Center(child: Text('Error loading profile: ${snapshot.error}'));
           } else if (snapshot.hasData) {
-            // Data successfully loaded
-            final user = snapshot.data!;
-            return _buildProfileContent(context, user);
+            return _buildProfileContent(context, snapshot.data!);
           } else {
-            // No data fallback
             return const Center(child: Text('No User Data Found'));
           }
         },
@@ -95,89 +151,80 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // Widget to build the profile content using the retrieved UserEntity
   Widget _buildProfileContent(BuildContext context, UserEntity user) {
-    // Determine display name and initial for the avatar
-    final String userName = user.displayName ?? 'User #${user.id.substring(0, 4)}';
+    final String userName = user.displayName ?? 'User';
     final int userPoints = user.points;
     final String profileImageLetter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
 
+    // Get photo URL from Auth
+    final authUser = FirebaseAuth.instance.currentUser;
+    final String? photoUrl = authUser?.photoURL;
+
     return Column(
       children: [
-        // --- Top Section: Profile Header (Dark Blue Section) ---
+        // --- HEADER SECTION (Immersive Gradient with Curve) ---
         Container(
-          padding: const EdgeInsets.only(top: 50, bottom: 20, left: 20, right: 20),
+          padding: const EdgeInsets.only(top: 60, bottom: 40, left: 20, right: 20),
           width: double.infinity,
-          decoration: const BoxDecoration(
-            color: const Color(0xFF1E3A8A),
-
+          decoration: BoxDecoration(
+            color: _primaryBlue,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_primaryBlue, const Color(0xFF2A4CA0)],
+            ),
           ),
           child: Column(
             children: [
-              // Header Row (Close and Title)
-              Text(
-                'Profile',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Profile Image/Avatar
+              // --- AVATAR ---
               Container(
-                width: 100,
-                height: 100,
+                width: 90,
+                height: 90,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  color: const Color(0xFF1E3A8A),
+                  color: Colors.indigo.shade50,
+                  border: Border.all(color: _amberAccent, width: 3), // Amber Ring
+                  image: photoUrl != null
+                      ? DecorationImage(
+                    image: NetworkImage(photoUrl),
+                    fit: BoxFit.cover,
+                  )
+                      : null,
                 ),
-                child: Center(
+                child: photoUrl == null
+                    ? Center(
                   child: Text(
-                    profileImageLetter, // Dynamic Initial
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    profileImageLetter,
+                    style: TextStyle(color: _primaryBlue, fontSize: 40, fontWeight: FontWeight.w800),
                   ),
-                ),
+                )
+                    : null,
               ),
+              const SizedBox(height: 16),
 
-              const SizedBox(height: 10),
-
-              // User Name (Dynamic)
+              // Name
               Text(
                 userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
               const SizedBox(height: 8),
 
-              // User Points (Dynamic)
+              // Points Badge (Glassmorphic Pill)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.25)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 18),
-                    const SizedBox(width: 6),
+                    Icon(Icons.stars_rounded, color: _amberAccent, size: 18),
+                    const SizedBox(width: 8),
                     Text(
-                      '$userPoints points',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      '$userPoints Points',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -186,55 +233,73 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ),
 
-        // --- Bottom Section: Menu Items List ---
+        // --- MENU ITEMS ---
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+            padding: const EdgeInsets.fromLTRB(20, 25, 20, 20),
             children: [
-              _buildProfileMenuItem(
-                context,
-                icon: Icons.person_outline,
-                title: 'Personal Info',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Go to Personal Info')));
-                },
+              _buildSectionHeader("Account"),
+              _buildCleanMenuItem(
+                  context,
+                  icon: Icons.person_outline_rounded,
+                  title: 'Personal Info',
+                  onTap: () => _navigateTo(context, PersonalInfoScreen(user: user))
               ),
-              _buildProfileMenuItem(
-                context,
-                icon: Icons.settings,
-                title: 'Setting',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Go to Settings')));
-                },
+              _buildCleanMenuItem(
+                  context,
+                  icon: Icons.history_edu_rounded,
+                  title: 'My Contributions',
+                  onTap: () {
+                    _navigateTo(context, const MyContributionsScreen());
+                  }
               ),
-              _buildProfileMenuItem(
-                context,
-                icon: Icons.headset_mic_outlined,
-                title: 'Support',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Go to Support')));
-                },
+
+              const SizedBox(height: 20),
+              _buildSectionHeader("App Settings"),
+              _buildCleanMenuItem(
+                  context,
+                  icon: Icons.settings_outlined,
+                  title: 'General Settings',
+                  onTap: () => _navigateTo(context, const SettingsScreen())
               ),
-              _buildProfileMenuItem(
-                context,
-                icon: Icons.policy_outlined,
-                title: 'Privacy & Policy',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Go to Privacy & Policy')));
-                },
+              _buildCleanMenuItem(
+                  context,
+                  icon: Icons.headset_mic_outlined,
+                  title: 'Support',
+                  onTap: () => _navigateTo(context, const SupportScreen())
               ),
+
+              const SizedBox(height: 20),
+              _buildSectionHeader("Legal & More"),
+              _buildCleanMenuItem(
+                  context,
+                  icon: Icons.leaderboard_outlined,
+                  title: 'Leaderboard',
+                  onTap: () {
+                    _navigateTo(context, const LeaderboardScreen());
+                  }
+              ),
+              _buildCleanMenuItem(
+                  context,
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacy & Policy',
+                  onTap: () => _navigateTo(context, const PrivacyPolicyScreen())
+              ),
+
               const SizedBox(height: 30),
-              _buildProfileMenuItem(
+
+              _buildCleanMenuItem(
                 context,
-                icon: Icons.logout,
+                icon: Icons.logout_rounded,
                 title: 'Sign out',
-                color: Colors.red.shade600,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sign Out Action Executed')),
-                  );
-                },
+                isDestructive: true,
+                // [CHANGED] Now triggers dialog
+                onTap: () => _showSignOutConfirmation(context),
               ),
+
+              // Version Text
+              const SizedBox(height: 20),
+              Center(child: Text("v1.0.0", style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
             ],
           ),
         ),
@@ -242,41 +307,73 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // Helper method to build the interactive menu list tiles
-  Widget _buildProfileMenuItem(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required VoidCallback onTap,
-        Color? color,
-      }) {
-    final itemColor = color ?? const Color(0xFF4C579E);
-
+  Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0),
+      padding: const EdgeInsets.only(bottom: 10, left: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0
+        ),
+      ),
+    );
+  }
+
+  // Updated to be "Clean" - No Shadows, Border styling, consistent radii
+  Widget _buildCleanMenuItem(BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    bool isDestructive = false
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16), // Slightly more rounded
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Material(
-        //color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        elevation: 0,
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // Better touch target
             child: Row(
               children: [
-                Icon(icon, color: itemColor, size: 24),
-                const SizedBox(width: 18),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: itemColor,
+                // Icon Pill
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDestructive ? Colors.red.shade50 : Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                      icon,
+                      color: isDestructive ? Colors.red.shade400 : _primaryBlue,
+                      size: 20
                   ),
                 ),
-                const Spacer(),
-                Icon(Icons.arrow_forward_ios, size: 20, color: Colors.grey[400]),
+                const SizedBox(width: 16),
+
+                // Text
+                Expanded(
+                  child: Text(
+                      title,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDestructive ? Colors.red.shade400 : Colors.black87
+                      )
+                  ),
+                ),
+
+                // Trailing Arrow
+                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade300),
               ],
             ),
           ),

@@ -1,59 +1,72 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rxdart/rxdart.dart'; // Optional: Recommended for better stream combining
 import 'package:translate/src/features/translation/data/models/translation_model.dart';
 import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';
 import 'package:translate/src/features/translation/domain/repositories/TranslationRepository.dart';
-import '../datasources/translation_remote_datasource.dart'; // Import abstract data source
+import '../datasources/translation_remote_datasource.dart';
 
-// Assuming the current user ID is accessible (or passed in) to determine vote status.
-// For now, we'll use a placeholder user ID, similar to the UI widget.
-const String kCurrentMockUserId = 'temp-user-12345';
 const String kUserVotesCollection = 'user_votes';
 
 class TranslationRepositoryImpl implements TranslationRepository {
   final TranslationRemoteDataSource remoteDataSource;
-  final FirebaseFirestore firestore; // Inject Firestore instance here to check votes
+  final FirebaseFirestore firestore;
 
   TranslationRepositoryImpl({required this.remoteDataSource, required this.firestore});
 
-  // --- Real-Time Feed Fetching and Merging ---
   @override
   Stream<List<TranslationEntry>> getCommunityTranslations() {
-    // 1. Get the stream of translation entries from the remote data source
-    return remoteDataSource.getCommunityTranslations().asyncMap((translations) async {
-      // 2. Fetch the current user's vote data in a single read operation
-      final userVotesDoc = await firestore.collection(kUserVotesCollection).doc(kCurrentMockUserId).get();
+    // 1. Get the raw translations stream
+    final translationsStream = remoteDataSource.getCommunityTranslations();
 
-      // Extract votes map (Map<String, int> where key is translationId and value is 1 or -1)
+    // 2. Create a stream of the current user's ID (updates on login/logout)
+    final userStream = FirebaseAuth.instance.authStateChanges();
+
+    // 3. Combine them so whenever translations change OR user logs in/out, we update
+    return Rx.combineLatest2<List<TranslationEntry>, User?, List<TranslationEntry>>(
+        translationsStream,
+        userStream,
+            (translations, user) {
+          if (user == null) return translations;
+
+          // We need to return a Stream here, but combineLatest expects a value.
+          // Since fetching the user votes is async (Future), the standard pattern
+          // without RxDart complexity is to wrap the result in a Future/StreamBuilder in UI,
+          // OR use the asyncMap approach you had, but make sure it listens to AUTH changes too.
+
+          // Let's stick to the asyncMap approach but ensure we fetch fresh votes every time
+          return translations;
+        }
+    ).asyncMap((translations) async {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return translations;
+
+      // FETCH REAL-TIME VOTES
+      // Note: Ideally this should also be a stream, but a 'get' is okay for MVP
+      final userVotesDoc = await firestore.collection(kUserVotesCollection).doc(user.uid).get();
+
       Map<String, int> votes = {};
       if (userVotesDoc.exists) {
-        final data = userVotesDoc.data() as Map<String, dynamic>?;
+        final data = userVotesDoc.data();
         if (data != null && data['votes'] is Map) {
           votes = Map<String, int>.from(data['votes'] as Map).map((k, v) => MapEntry(k, v as int));
         }
       }
 
-      // 3. Map the translation list, merging the vote status
       return translations.map((entry) {
-        // Check if the current user has a recorded vote (either +1 or -1) for this entry
-        final hasVoted = votes.containsKey(entry.id);
-
-        // Return a copy of the entry with the correct isVotedByUser status
-        return entry.copyWith(isVotedByUser: hasVoted);
+        // 0 = None, 1 = Up, -1 = Down
+        final int myVote = votes[entry.id] ?? 0;
+        return entry.copyWith(userVoteStatus: myVote);
       }).toList();
     });
   }
 
-  // --- Write Operations (Delegated) ---
-
   @override
   Future<void> submitTranslation(TranslationEntry entry) async {
-    // Assuming TranslationModel extends TranslationEntry for direct use,
-    // or provides a static method to convert.
     final model = TranslationModel.fromEntity(entry);
     await remoteDataSource.submitTranslation(model);
   }
-
 
   @override
   Future<void> updateTranslationScore({
@@ -61,6 +74,7 @@ class TranslationRepositoryImpl implements TranslationRepository {
     required String userId,
     required int scoreChange,
   }) {
+    // We simply pass the INTENT (1 or -1). The DataSource handles the "Switching" logic.
     return remoteDataSource.updateScore(
       translationId: translationId,
       userId: userId,

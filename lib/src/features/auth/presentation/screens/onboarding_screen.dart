@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';// 1. Import the AuthGate
+import 'package:flutter/material.dart';
 import 'package:translate/src/features/auth/presentation/screens/auth_gate.dart';
-import 'package:translate/src/core/reusables/auth_button.dart' hide kAccentColor, kBackgroundColor, kPrimaryColor;
 
-// 2. Define constants locally
-const Color kPrimaryColor = Color(0xFF6C63FF);
-const Color kAccentColor = Color(0xFFFF6584);
-const Color kBackgroundColor = Color(0xFF2F2E41);
+// Theme Constants (Consistent with AppShell & CommunityFeed)
+const Color kPrimaryBlue = Color(0xFF1E3A8A);
+const Color kAmberAccent = Colors.amber;
+const Color kBackgroundColor = Color(0xFFF9FAFB); // Grey.shade50 equivalent
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -20,36 +19,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, dynamic>> _pages = [
     {
-      'title': 'Translate everywhere',
-      'subtitle': 'Communicate with anyone, anywhere, regardless of language barriers.',
-      'image_url': 'assets/onboarding1.png',
+      'title': 'Bridge the Gap',
+      'subtitle': 'Connect with communities worldwide. Break language barriers instantly.',
+      'icon': Icons.public_rounded, // Using Icons instead of images for cleaner look
     },
     {
-      'title': 'Voice & Text',
-      'subtitle': 'Seamlessly translate both voice conversations and written text.',
-      'image_url': 'assets/onboarding2.png',
+      'title': 'Voice of the People',
+      'subtitle': 'Translate distinct dialects and slang that standard apps miss.',
+      'icon': Icons.record_voice_over_rounded,
     },
     {
-      'title': 'Secure & Private',
-      'subtitle': 'Your conversations are encrypted and remain private.',
-      'image_url': 'assets/onboarding3.png',
+      'title': 'Earn & Climb',
+      'subtitle': 'Contribute translations, earn points, and top the community leaderboard.',
+      'icon': Icons.emoji_events_rounded,
     },
   ];
 
   void _onNext() {
     if (_currentPage < _pages.length - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeIn,
-      );
-    }
-  }
-
-  void _onBack() {
-    if (_currentPage > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeIn,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
       );
     }
   }
@@ -60,165 +50,146 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: kBackgroundColor,
       body: Stack(
         children: [
+          // Background decorative circle
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: kPrimaryBlue.withOpacity(0.1),
+              ),
+            ),
+          ),
+
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) => setState(() => _currentPage = index),
             itemCount: _pages.length,
             itemBuilder: (context, index) {
               final pageData = _pages[index];
-              final isLastPage = index == _pages.length - 1;
-
-              return Column(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: Container(
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Icon / Illustration Area
+                    Container(
+                      padding: const EdgeInsets.all(40),
                       decoration: BoxDecoration(
-                        color: Colors.black12,
-                        image: DecorationImage(
-                          // Ensure you have these assets, or use NetworkImage for testing
-                          image: AssetImage(pageData['image_url']),
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                          onError: (exception, stackTrace) {
-                            // Handle missing asset
-                          },
-                        ),
-                      ),
-                      child: isLastPage
-                          ? const Center(
-                        child: Icon(
-                          Icons.lock,
-                          size: 100,
-                          color: Colors.white,
-                          shadows: [
-                            BoxShadow(
-                              color: Colors.black54,
-                              blurRadius: 10,
-                              offset: Offset(4, 8),
-                            )
-                          ],
-                        ),
-                      )
-                          : null,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            pageData['title'],
-                            style: Theme.of(context).textTheme.headlineMedium!.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Container(
-                            margin: const EdgeInsets.only(top: 8, bottom: 16),
-                            height: 3,
-                            width: 50,
-                            color: kAccentColor,
-                          ),
-                          Text(
-                            pageData['subtitle'],
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge!
-                                .copyWith(color: Colors.white70),
-                          ),
-                          const Spacer(),
-                          // Indicators
-                          Row(
-                            children: List.generate(
-                              _pages.length,
-                                  (index) => DotIndicator(isActive: index == _currentPage),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Action Buttons
-                          isLastPage
-                              ? SizedBox(
-                            width: double.infinity,
-                            child: AuthButton(
-                              text: 'Get Started',
-                              isPrimary: true,
-                              backgroundColor: kPrimaryColor,
-                              foregroundColor: Colors.white,
-                              onPressed: () {
-                                // Simplified Navigation: Just go to AuthGate
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                      builder: (context) => const AuthGate()),
-                                );
-                              },
-                            ),
-                          )
-                              : Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              if (_currentPage > 0)
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: _onBack,
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Colors.white),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 15),
-                                    ),
-                                    child: const Text('Back', style: TextStyle(fontSize: 16)),
-                                  ),
-                                ),
-                              SizedBox(width: _currentPage > 0 ? 15 : 0),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: _onNext,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: kPrimaryColor,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
-                                    padding: const EdgeInsets.symmetric(vertical: 15),
-                                  ),
-                                  child: const Text('Next', style: TextStyle(fontSize: 16)),
-                                ),
-                              ),
-                            ],
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: kPrimaryBlue.withOpacity(0.15),
+                            blurRadius: 30,
+                            offset: const Offset(0, 10),
                           ),
                         ],
                       ),
+                      child: Icon(
+                        pageData['icon'],
+                        size: 100,
+                        color: kPrimaryBlue,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 60),
+
+                    // Text Content
+                    Text(
+                      pageData['title'],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: kPrimaryBlue,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      pageData['subtitle'],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           ),
+
+          // Bottom Navigation Area
+          Positioned(
+            bottom: 40,
+            left: 30,
+            right: 30,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Page Indicators
+                Row(
+                  children: List.generate(
+                    _pages.length,
+                        (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.only(right: 8),
+                      height: 8,
+                      width: _currentPage == index ? 24 : 8,
+                      decoration: BoxDecoration(
+                        color: _currentPage == index ? kAmberAccent : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Next / Get Started Button
+                ElevatedButton(
+                  onPressed: () {
+                    if (_currentPage == _pages.length - 1) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (context) => const AuthGate()),
+                      );
+                    } else {
+                      _onNext();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryBlue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 4,
+                    shadowColor: kPrimaryBlue.withOpacity(0.4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward_rounded, size: 18),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class DotIndicator extends StatelessWidget {
-  final bool isActive;
-  const DotIndicator({super.key, required this.isActive});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.symmetric(horizontal: 5.0),
-      height: 8.0,
-      width: isActive ? 24.0 : 8.0,
-      decoration: BoxDecoration(
-        color: isActive ? kPrimaryColor : Colors.white54,
-        borderRadius: BorderRadius.circular(4),
       ),
     );
   }

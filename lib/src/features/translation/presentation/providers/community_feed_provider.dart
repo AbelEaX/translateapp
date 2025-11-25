@@ -1,58 +1,46 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';
 import 'package:translate/src/features/translation/domain/usecases/get_community_translations.dart';
 import 'package:translate/src/features/translation/domain/usecases/update_translation_score.dart';
-// Import the Community model to resolve type errors
 import 'package:translate/src/features/community/domain/entities/community_model.dart';
 
-// --- Placeholder Use Case Interfaces (Dependencies to be Injected) ---
-// These abstract interfaces define the contract for community management.
-abstract class GetAllCommunitiesUseCase {
-  Future<List<Community>> call();
-}
-abstract class ToggleCommunityMembershipUseCase {
-  Future<void> call({required String communityId, required bool isJoining});
-}
-// --- End Placeholder Use Cases ---
-
-
 class CommunityFeedProvider extends ChangeNotifier {
-  // Translation Feed Dependencies (Existing)
+  // Dependencies
   final GetCommunityTranslations getTranslationsUseCase;
   final UpdateTranslationScore updateScoreUseCase;
 
-  // Community Management Dependencies (NEW)
-  final GetAllCommunitiesUseCase getAllCommunitiesUseCase;
-  final ToggleCommunityMembershipUseCase toggleMembershipUseCase;
+  // The specific Firestore instance (for 'gotranslate' DB)
+  final FirebaseFirestore firestore;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // CRITICAL: Subscription for the real-time stream from Firestore
+  // Real-time Subscription
   StreamSubscription<List<TranslationEntry>>? _feedSubscription;
 
-  // --- Constructor and Initialization ---
+  // --- Constructor ---
   CommunityFeedProvider({
     required this.getTranslationsUseCase,
     required this.updateScoreUseCase,
-    // NEW: Add required dependencies for community management
-    required this.getAllCommunitiesUseCase,
-    required this.toggleMembershipUseCase,
+    required this.firestore,
   }) {
-    // Start listening to the translation feed immediately upon initialization
     fetchTranslations();
   }
 
-  // --- State Variables: Translation Feed ---
-  List<TranslationEntry> _translations = [];
+  // --- Search State ---
+  String _searchQuery = '';
+  List<TranslationEntry> _allTranslations = []; // Stores the raw, unfiltered list
+
+  // --- State Variables ---
+  List<TranslationEntry> _translations = []; // Stores the list currently shown in UI
   List<TranslationEntry> get translations => _translations;
 
-  // --- State Variables: Community Management (NEW) ---
-  // The list of communities the current user has joined
   List<Community> _joinedCommunities = [];
-  // FIX: Getter required by CommunityDiscoveryScreen
   List<Community> get joinedCommunities => _joinedCommunities;
 
-  // The list of all discoverable communities (fetched once)
   List<Community> _allCommunities = [];
+  List<Community> get allCommunities => _allCommunities;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -60,79 +48,150 @@ class CommunityFeedProvider extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
-  // --- Community Management Methods (NEW) ---
+  // --- Search Logic ---
 
-  /// FIX: Method required by CommunityDiscoveryScreen
-  /// Fetches all available communities.
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    _applySearchFilter();
+  }
+
+  void _applySearchFilter() {
+    if (_searchQuery.isEmpty) {
+      // No search? Show everything.
+      _translations = List.from(_allTranslations);
+    } else {
+      // Filter logic
+      final query = _searchQuery.toLowerCase();
+      _translations = _allTranslations.where((t) {
+        return t.sourceText.toLowerCase().contains(query) ||
+            t.translatedText.toLowerCase().contains(query) ||
+            t.context.toLowerCase().contains(query);
+      }).toList();
+    }
+    notifyListeners();
+  }
+
+  // --- Community Management Methods (Firestore Implementation) ---
+
   Future<List<Community>> fetchAllCommunities() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // 1. Fetch all communities from the backend
-      final all = await getAllCommunitiesUseCase.call();
-      _allCommunities = all;
+      final querySnapshot = await firestore.collection('communities').get();
+      var fetchedCommunities = querySnapshot.docs
+          .map((doc) => Community.fromFirestore(doc))
+          .toList();
 
-      // 2. Fetch or mock the current joined communities state for display logic
-      // NOTE: For now, we manually mock a subset of joined communities.
-      _joinedCommunities = [
-        if (all.isNotEmpty) all[0].copyWith(isJoined: true),
-        if (all.length > 2) all[2].copyWith(isJoined: true),
-      ];
+      final user = _auth.currentUser;
+      if (user != null) {
+        final joinedSnapshot = await firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('joined_communities')
+            .get();
 
+        final joinedIds = joinedSnapshot.docs.map((doc) => doc.id).toSet();
+
+        fetchedCommunities = fetchedCommunities.map((c) {
+          if (joinedIds.contains(c.id)) {
+            return c.copyWith(isJoined: true);
+          }
+          return c;
+        }).toList();
+
+        _joinedCommunities = fetchedCommunities.where((c) => c.isJoined).toList();
+      } else {
+        _joinedCommunities = [];
+      }
+
+      _allCommunities = fetchedCommunities;
       _isLoading = false;
       notifyListeners();
       return _allCommunities;
 
     } catch (e) {
-      _error = 'Failed to fetch all communities: ${e.toString()}';
+      _error = 'Failed to fetch communities: $e';
       _isLoading = false;
       notifyListeners();
       return [];
     }
   }
 
-  /// FIX: Method required by CommunityDiscoveryScreen
-  /// Adds a user to a community and updates the joined list.
-  Future<void> joinCommunity(Community community) async {
-    try {
-      // Call Use Case to persist the change (isJoining: true)
-      await toggleMembershipUseCase.call(communityId: community.id, isJoining: true);
+  Future<void> joinCommunity(String communityId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
 
-      // Optimistically update the local state
-      if (!_joinedCommunities.any((c) => c.id == community.id)) {
-        // Create a copy with isJoined set to true for consistency
-        _joinedCommunities = [..._joinedCommunities, community.copyWith(isJoined: true)];
+    try {
+      await firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('joined_communities')
+          .doc(communityId)
+          .set({'joinedAt': FieldValue.serverTimestamp()});
+
+      await firestore
+          .collection('communities')
+          .doc(communityId)
+          .update({'memberCount': FieldValue.increment(1)});
+
+      final index = _allCommunities.indexWhere((c) => c.id == communityId);
+      if (index != -1) {
+        final updatedCommunity = _allCommunities[index].copyWith(
+          isJoined: true,
+          memberCount: _allCommunities[index].memberCount + 1,
+        );
+        _allCommunities[index] = updatedCommunity;
+
+        if (!_joinedCommunities.any((c) => c.id == communityId)) {
+          _joinedCommunities.add(updatedCommunity);
+        }
       }
       notifyListeners();
     } catch (e) {
-      _error = 'Failed to join community: ${e.toString()}';
+      debugPrint("Error joining community: $e");
+      _error = 'Failed to join community';
       notifyListeners();
     }
   }
 
-  /// FIX: Method required by CommunityDiscoveryScreen
-  /// Removes a user from a community and updates the joined list.
-  Future<void> leaveCommunity(Community community) async {
-    try {
-      // Call Use Case to persist the change (isJoining: false)
-      await toggleMembershipUseCase.call(communityId: community.id, isJoining: false);
+  Future<void> leaveCommunity(String communityId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
 
-      // Optimistically update the local state
-      _joinedCommunities = _joinedCommunities.where((c) => c.id != community.id).toList();
+    try {
+      await firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('joined_communities')
+          .doc(communityId)
+          .delete();
+
+      await firestore
+          .collection('communities')
+          .doc(communityId)
+          .update({'memberCount': FieldValue.increment(-1)});
+
+      final index = _allCommunities.indexWhere((c) => c.id == communityId);
+      if (index != -1) {
+        final updatedCommunity = _allCommunities[index].copyWith(
+          isJoined: false,
+          memberCount: (_allCommunities[index].memberCount - 1).clamp(0, 999999),
+        );
+        _allCommunities[index] = updatedCommunity;
+        _joinedCommunities.removeWhere((c) => c.id == communityId);
+      }
       notifyListeners();
     } catch (e) {
-      _error = 'Failed to leave community: ${e.toString()}';
+      debugPrint("Error leaving community: $e");
+      _error = 'Failed to leave community';
       notifyListeners();
     }
   }
 
-  // --- Real-Time Data Fetching (Existing Translation Feed Logic) ---
-
-  /// Subscribes to the stream returned by the Use Case to get real-time updates.
+  // --- Real-Time Data Fetching ---
   Future<void> fetchTranslations() async {
-    // 1. Cancel any existing subscription to prevent duplicates/memory leaks
     _feedSubscription?.cancel();
 
     _isLoading = true;
@@ -140,69 +199,44 @@ class CommunityFeedProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 2. Get the Stream from the use case (which originates in the data layer)
       final stream = await getTranslationsUseCase.call();
-
-      // 3. Listen to the stream for real-time updates
       _feedSubscription = stream.listen(
-              (newTranslations) {
-            // Data event: update state with new, live data
-            _translations = newTranslations;
-            _isLoading = false;
-            _error = null;
-            notifyListeners();
-          },
-          onError: (e) {
-            // Error event: handle failures in the stream
-            _error = 'Failed to load community feed: $e';
-            _isLoading = false;
-            _translations = [];
-            notifyListeners();
-            debugPrint('Community Feed Stream Error: $_error');
-          },
-          onDone: () {
-            debugPrint('Community Feed Stream completed.');
-            _isLoading = false;
-            notifyListeners();
-          }
+            (newTranslations) {
+          _allTranslations = newTranslations; // 1. Store raw data
+          _applySearchFilter();               // 2. Filter it based on current query
+          _isLoading = false;
+          _error = null;
+          // notifyListeners is called inside _applySearchFilter
+        },
+        onError: (e) {
+          _error = 'Failed to load community feed: $e';
+          _isLoading = false;
+          notifyListeners();
+        },
       );
     } catch (e) {
-      // Catch synchronous errors during subscription setup
-      _error = 'An error occurred setting up the feed: $e';
+      _error = 'Error setting up feed: $e';
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // --- Voting/Score Update (Existing Logic) ---
-  /// Calls the Use Case to update the score (a single write operation).
   Future<void> updateScore(String translationId, String userId, int scoreChange) async {
     if (translationId.isEmpty) return;
-
     try {
-      // Call the use case to update the score in the backend via a transaction
       await updateScoreUseCase.call(
         translationId: translationId,
         userId: userId,
-        scoreChange: scoreChange, // The delta: +1 for upvote, -1 for downvote
+        scoreChange: scoreChange,
       );
-
-      // The UI will automatically update because the successful transaction
-      // triggers a new event on the Firestore stream, which the
-      // _feedSubscription is listening to.
-
     } catch (e) {
-      _error = 'Failed to update vote: ${e.toString()}';
-      debugPrint('Update Score Error: $_error');
-      // Notify listeners to potentially display an error message on the UI
+      _error = 'Failed to update vote: $e';
       notifyListeners();
     }
   }
 
-  // --- Cleanup (Existing Logic) ---
   @override
   void dispose() {
-    // CRITICAL: Cancel the stream subscription when the provider is destroyed
     _feedSubscription?.cancel();
     super.dispose();
   }

@@ -1,47 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:translate/src/features/auth/presentation/screens/profile_screen.dart';
 import 'package:translate/src/features/translation/presentation/widgets/community_feed.dart';
 import 'package:translate/src/features/translation/presentation/widgets/submission_form.dart';
+import 'package:translate/src/features/translation/presentation/providers/navigation_provider.dart'; // Import the new provider
 
-
-class AppShell extends StatefulWidget {
+class AppShell extends StatelessWidget {
   const AppShell({super.key});
 
-  @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0;
-
-  // List of screens corresponding to the bottom navigation bar items
-  final List<Widget> _screens = [
-    // 1. Community Feed: Shows all submitted translations (Discover)
-    const CommunityFeed(),
-    // 2. Submission Form: Allows users to add a new translation (Submit)
-    const TranslationSubmissionForm(),
-    // 3. User Profile Screen (You)
-    const UserProfileScreen(), // <-- NOW DISPLAYING THE PROFILE SCREEN
+  final List<Widget> _screens = const [
+    CommunityFeed(),
+    TranslationSubmissionForm(),
+    UserProfileScreen(),
   ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
+    // Listen to the provider for the current index
+    final navProvider = Provider.of<NavigationProvider>(context);
+    final selectedIndex = navProvider.currentIndex;
+
     return Scaffold(
-
-
-      // IndexedStack preserves the state of the inactive widgets,
-      // so the CommunityFeed doesn't reload every time you switch tabs.
       body: IndexedStack(
-        index: _selectedIndex,
+        index: selectedIndex,
         children: _screens,
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -57,12 +40,15 @@ class _AppShellState extends State<AppShell> {
             label: 'You',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF1E3A8A), // Your primary color
+        currentIndex: selectedIndex,
+        selectedItemColor: const Color(0xFF1E3A8A),
         unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+        onTap: (index) {
+          // Update the provider
+          navProvider.setIndex(index);
+        },
         backgroundColor: Colors.white,
-        type: BottomNavigationBarType.fixed, // Use fixed for 3+ items
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }
