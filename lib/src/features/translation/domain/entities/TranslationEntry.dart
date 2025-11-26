@@ -9,6 +9,11 @@ class TranslationEntry extends Equatable {
   final String sourceLang;
   final String targetLang;
 
+  // --- COMMENTS METADATA ---
+  final int commentCount;
+  final String? latestCommentText;
+  final String? latestCommentUser;
+
   // --- ML METADATA ---
   final String context;
   final String dialect;
@@ -30,6 +35,9 @@ class TranslationEntry extends Equatable {
     required this.translatedText,
     required this.sourceLang,
     required this.targetLang,
+    this.commentCount = 0,
+    this.latestCommentText,
+    this.latestCommentUser,
     required this.context,
     required this.dialect,
     this.score = 0,
@@ -50,6 +58,7 @@ class TranslationEntry extends Equatable {
     final int score = (data['score'] as num?)?.toInt() ?? 0;
     final int upvotes = (data['upvotes'] as num?)?.toInt() ?? 0;
     final int downvotes = (data['downvotes'] as num?)?.toInt() ?? 0;
+    final int commentCount = (data['commentCount'] as num?)?.toInt() ?? 0;
 
     // Determine user status if map provided, otherwise 0
     int myVote = 0;
@@ -64,6 +73,12 @@ class TranslationEntry extends Equatable {
       targetLang: data['targetLang'] as String? ?? 'Unknown',
       sourceText: data['sourceText'] as String? ?? '',
       translatedText: data['translatedText'] as String? ?? '',
+
+      // Comment Data
+      commentCount: commentCount,
+      latestCommentText: data['latestCommentText'] as String?,
+      latestCommentUser: data['latestCommentUser'] as String?,
+
       score: score,
       upvotes: upvotes,
       downvotes: downvotes,
@@ -81,6 +96,9 @@ class TranslationEntry extends Equatable {
     String? translatedText,
     String? sourceLang,
     String? targetLang,
+    int? commentCount,
+    String? latestCommentText,
+    String? latestCommentUser,
     String? context,
     String? dialect,
     int? score,
@@ -96,6 +114,9 @@ class TranslationEntry extends Equatable {
       translatedText: translatedText ?? this.translatedText,
       sourceLang: sourceLang ?? this.sourceLang,
       targetLang: targetLang ?? this.targetLang,
+      commentCount: commentCount ?? this.commentCount,
+      latestCommentText: latestCommentText ?? this.latestCommentText,
+      latestCommentUser: latestCommentUser ?? this.latestCommentUser,
       context: context ?? this.context,
       dialect: dialect ?? this.dialect,
       score: score ?? this.score,
@@ -108,7 +129,9 @@ class TranslationEntry extends Equatable {
 
   @override
   List<Object?> get props => [
-    id, userId, sourceText, translatedText, context, dialect,
+    id, userId, sourceText, translatedText, sourceLang, targetLang,
+    commentCount, latestCommentText, latestCommentUser,
+    context, dialect,
     score, upvotes, downvotes, userVoteStatus, createdAt
   ];
 }

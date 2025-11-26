@@ -1,42 +1,89 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Required for user lookup
-import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';import 'package:translate/src/features/translation/presentation/providers/community_feed_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart'; // Required for Firebase.app()
+import 'package:translate/src/core/config/constants.dart'; // Required for DB ID
+import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';
+import 'package:translate/src/features/translation/presentation/providers/community_feed_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+
+// Import the comment sheet
+import 'package:translate/src/features/community/presentation/widgets/comment_bottom_sheet.dart';
 
 class TranslationCard extends StatelessWidget {
   final TranslationEntry entry;
+  final bool allowComments;
 
-  const TranslationCard({super.key, required this.entry});
+  const TranslationCard({
+    super.key,
+    required this.entry,
+    this.allowComments = false,
+  });
 
   String _formatCount(int count) {
     return NumberFormat.compact().format(count);
   }
 
-  // --- NEW: Helper to fetch user name asynchronously ---
+  // --- Helper to fetch user name asynchronously ---
   Future<String> _fetchContributorName() async {
     if (entry.userId.isEmpty) return 'Anonymous Contributor';
 
     try {
-      // 1. Look up the user in the 'users' collection
-      final doc = await FirebaseFirestore.instance
+      // [FIX] Use the specific database instance defined in constants
+      final customDb = FirebaseFirestore.instanceFor(
+        app: Firebase.app(),
+        databaseId: TRANSLATION_FIRESTORE_DB_ID,
+      );
+
+      final doc = await customDb
           .collection('users')
           .doc(entry.userId)
           .get();
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        // Return display name if available, otherwise a fallback
         return data['displayName'] as String? ?? 'Community Member';
       }
     } catch (e) {
       debugPrint("Error fetching user name: $e");
     }
-
-    // Fallback if lookup fails or doc doesn't exist
     return 'Community Member';
+  }
+
+  // --- Helper method to open comments ---
+  void _openComments(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentBottomSheet(translationId: entry.id ?? ''),
+    );
+  }
+
+  // --- Helper method to share content ---
+  void _shareTranslation(BuildContext context) {
+    final String textToShare =
+        'Check out this translation on GoTranslate!\n\n'
+        '${entry.sourceLang} ➡ ${entry.targetLang}\n'
+        '"${entry.sourceText}" means "${entry.translatedText}"\n\n'
+        '${entry.context.isNotEmpty ? "Context: ${entry.context}\n" : ""}'
+        'Join the community to learn more!';
+
+    Share.share(textToShare);
+  }
+
+  // --- Helper to handle voting ---
+  void _handleVote(BuildContext context, CommunityFeedProvider provider, User? currentUser, TranslationEntry entry, int scoreChange) {
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please sign in to vote!")),
+      );
+      return;
+    }
+    provider.updateScore(entry.id ?? '', currentUser.uid, scoreChange);
   }
 
   @override
@@ -73,7 +120,6 @@ class TranslationCard extends StatelessWidget {
             // --- Header: User Info & Language Badge ---
             Row(
               children: [
-                // FutureBuilder for Avatar Letter
                 FutureBuilder<String>(
                     future: _fetchContributorName(),
                     builder: (context, snapshot) {
@@ -95,7 +141,6 @@ class TranslationCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- UPDATED: FutureBuilder to show real Name ---
                       FutureBuilder<String>(
                         future: _fetchContributorName(),
                         builder: (context, snapshot) {
@@ -109,7 +154,6 @@ class TranslationCard extends StatelessWidget {
                               ),
                             );
                           }
-
                           return Text(
                             snapshot.data ?? 'Community Member',
                             style: const TextStyle(
@@ -129,7 +173,6 @@ class TranslationCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Cool Amber Language Badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -147,7 +190,7 @@ class TranslationCard extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // --- The Content with Amber Accent Line ---
+            // --- The Content ---
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,6 +259,7 @@ class TranslationCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Left Side: Votes
                 Container(
                   height: 40,
                   decoration: BoxDecoration(
@@ -279,35 +323,110 @@ class TranslationCard extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                // Right Side: Actions
                 Row(
                   children: [
+                    // Comment Button with Count
+                    if (allowComments)
+                      InkWell(
+                        onTap: () => _openComments(context),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.chat_bubble_outline_rounded, size: 22, color: Colors.grey.shade400),
+                              if (entry.commentCount > 0) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatCount(entry.commentCount),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade600
+                                  ),
+                                ),
+                              ]
+                            ],
+                          ),
+                        ),
+                      ),
+
                     IconButton(
                       icon: const Icon(Icons.volume_up_rounded),
                       color: Colors.grey.shade400,
-                      onPressed: () {},
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Audio coming soon!")),
+                        );
+                      },
                     ),
                     IconButton(
                       icon: const Icon(Icons.share_rounded),
                       color: Colors.grey.shade400,
-                      onPressed: () {},
+                      onPressed: () => _shareTranslation(context),
                     ),
                   ],
-                )
+                ),
               ],
             ),
+
+            // Latest Comment Preview
+            if (allowComments && entry.latestCommentText != null && entry.latestCommentText!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () => _openComments(context),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.indigo.shade50),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tiny Avatar or Icon
+                      CircleAvatar(
+                        radius: 10,
+                        backgroundColor: Colors.indigo.shade100,
+                        child: Text(
+                          (entry.latestCommentUser != null && entry.latestCommentUser!.isNotEmpty)
+                              ? entry.latestCommentUser![0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RichText(
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 13, color: Colors.black87),
+                            children: [
+                              TextSpan(
+                                text: "${entry.latestCommentUser ?? 'Someone'}: ",
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                              ),
+                              TextSpan(
+                                text: entry.latestCommentText,
+                                style: TextStyle(color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
-  }
-
-  void _handleVote(BuildContext context, CommunityFeedProvider provider, User? user, TranslationEntry entry, int voteType) {
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please sign in to vote")));
-      return;
-    }
-    if (entry.id != null) {
-      provider.updateScore(entry.id!, user.uid, voteType);
-    }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:translate/src/features/translation/presentation/providers/submission_provider.dart';
+import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 
 class TranslationSubmissionForm extends StatefulWidget {
   const TranslationSubmissionForm({super.key});
@@ -21,9 +22,36 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
   String _selectedDialect = 'Standard';
 
   // --- DROPDOWN OPTIONS ---
-  final List<String> _languages = ['English', 'Rukiga', 'Luganda', 'Acholi', 'Runyankole', 'Ateso', 'Lugbara'];
+
+  // Comprehensive List of Ugandan Languages
+  final List<String> _languages = [
+    'English',
+    'Swahili',
+    'Luganda',
+    'Runyankole',
+    'Rukiga',
+    'Runyoro',
+    'Rutooro',
+    'Lumasaba',
+    'Lusoga',
+    'Ateso',
+    'Acholi',
+    'Langi',
+    'Alur',
+    'Lugbara',
+    'Japadhola',
+    'Samia',
+  ];
+
   final List<String> _contexts = ['General', 'Medical', 'Legal', 'Marketplace', 'Technology', 'Religious'];
-  final List<String> _dialects = ['Standard', 'Buddu', 'Kooki', 'Lango', 'Padhola'];
+  final List<String> _dialects = ['Standard', 'Buddu', 'Kooki', 'Lango', 'Padhola', 'Kigezi', 'Tooro'];
+
+  // Language Code Mapper for ML Kit (BCP-47)
+  final Map<String, String> _langCodeMap = {
+    'English': 'en',
+    'Swahili': 'sw',
+    'Luganda': 'lg',
+  };
 
   @override
   void dispose() {
@@ -32,8 +60,81 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
     super.dispose();
   }
 
+  // --- HELPER: PROGRAMMATIC LANGUAGE PICKER ---
+  // Since DropdownButton cannot be opened programmatically, we use a ModalBottomSheet
+  // to simulate opening the list for the user to correct their selection.
+  void _openLanguagePicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5,
+          maxChildSize: 0.9,
+          minChildSize: 0.3,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text("Select Correct Target Language",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800)
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: _languages.length,
+                    itemBuilder: (context, index) {
+                      final lang = _languages[index];
+                      final isSelected = lang == _selectedTargetLang;
+                      return ListTile(
+                        leading: Icon(Icons.language, color: isSelected ? const Color(0xFF1E3A8A) : Colors.grey),
+                        title: Text(lang, style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? const Color(0xFF1E3A8A) : Colors.black87
+                        )),
+                        trailing: isSelected ? const Icon(Icons.check_circle, color: Color(0xFF1E3A8A)) : null,
+                        onTap: () {
+                          setState(() => _selectedTargetLang = lang);
+                          Navigator.pop(context); // Close picker
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- LAYER 1: ML KIT VERIFICATION ---
+  Future<bool> _verifyLanguageWithML(String text, String selectedLangName) async {
+    final expectedCode = _langCodeMap[selectedLangName];
+    if (expectedCode == null) return true;
+
+    try {
+      final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.5);
+      final String detectedCode = await languageIdentifier.identifyLanguage(text);
+      languageIdentifier.close();
+
+      if (detectedCode != 'und' && detectedCode != expectedCode) {
+        return false;
+      }
+    } catch (e) {
+      debugPrint("ML Kit Error: $e");
+    }
+    return true;
+  }
+
   void _submitData() async {
-    // 1. Basic Validation
+    // 1. Basic Input Validation
     if (_sourceController.text.isEmpty || _targetController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in both text fields')),
@@ -41,10 +142,117 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
       return;
     }
 
-    // 2. Close Keyboard
     FocusScope.of(context).unfocus();
 
-    // 3. Call the Provider
+    // --- 2. LAYER 1: INTELLIGENT MISMATCH CHECK (ML KIT) ---
+    if (_targetController.text.length > 10) {
+      final isMatch = await _verifyLanguageWithML(_targetController.text, _selectedTargetLang);
+
+      if (!isMatch && mounted) {
+        // SHOW WARNING DIALOG
+        final bool? overrideWarning = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            backgroundColor: Colors.red.shade50,
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
+                const SizedBox(width: 8),
+                const Expanded(child: Text("Possible Mismatch", style: TextStyle(fontSize: 18))),
+              ],
+            ),
+            content: Text(
+              "We detected that the text you typed might not be '$_selectedTargetLang'.\n\nSubmitting incorrect languages hurts the community database.\n\nAre you sure you want to proceed?",
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx, false); // Close warning
+                  _openLanguagePicker(); // [ACTION] Let user fix it
+                },
+                child: const Text("Let me fix it"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true), // Proceed
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Ignore Warning"),
+              ),
+            ],
+          ),
+        );
+
+        if (overrideWarning != true) return; // Stop if user wants to fix it
+      }
+    }
+
+    // --- 3. LAYER 2: MANUAL CONFIRMATION DIALOG (ALWAYS SHOWN) ---
+    if (mounted) {
+      final bool? confirmFinal = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text("Confirm Submission", style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("You are contributing to the:", style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E3A8A).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF1E3A8A).withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedTargetLang.toUpperCase(),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A)),
+                    ),
+                    Text(
+                      "Dictionary",
+                      style: TextStyle(fontSize: 12, color: Colors.indigo.shade300),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text("Is this the correct language?"),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx, false); // Close confirmation
+                _openLanguagePicker(); // [ACTION] Let user change selection
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.grey),
+              child: const Text("Check Again"), // Implies opening the list
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true), // Proceed
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A8A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text("Yes, Submit"),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmFinal != true) return; // Stop if user is changing selection
+    }
+
+    // --- 4. SUBMISSION ---
+    if (!mounted) return;
     final provider = Provider.of<SubmissionProvider>(context, listen: false);
 
     final success = await provider.submit(
@@ -56,7 +264,7 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
       dialect: _selectedDialect,
     );
 
-    // 4. Handle Result
+    // --- 5. HANDLE RESULT ---
     if (mounted) {
       if (success) {
         _sourceController.clear();
@@ -173,7 +381,7 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
 
           const SizedBox(height: 24),
 
-          // --- SECTION 2: TEXT INPUTS (Design mimics the TranslationCard) ---
+          // --- SECTION 2: TEXT INPUTS ---
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -187,18 +395,15 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // The Amber Decor Line (Consistency with Feed Card)
                 Container(
                   width: 4,
-                  height: 160, // Approximate height to cover both fields
+                  height: 160,
                   decoration: BoxDecoration(
                     color: Colors.amber.shade400,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
                 const SizedBox(width: 16),
-
-                // Fields
                 Expanded(
                   child: Column(
                     children: [
@@ -212,7 +417,7 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                         controller: _targetController,
                         hint: 'Type translation here...',
                         label: 'Translated Text',
-                        isHero: true, // Makes it look bolder
+                        isHero: true,
                       ),
                     ],
                   ),
@@ -253,8 +458,7 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
     );
   }
 
-  // --- WIDGET HELPERS ---
-
+  // --- HELPER WIDGETS ---
   Widget _buildFancyDropdown({
     required String label,
     required String value,
@@ -277,7 +481,7 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: value,
+              value: items.contains(value) ? value : items.first,
               isExpanded: true,
               icon: Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: Colors.grey.shade600),
               dropdownColor: Colors.white,
@@ -320,18 +524,12 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
             hintText: hint,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: isHero ? 16 : 14, fontWeight: FontWeight.normal),
             filled: true,
-            fillColor: isHero ? Colors.indigo.shade50.withOpacity(0.3) : Colors.grey.shade50,
-            contentPadding: const EdgeInsets.all(12),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.amber.shade400, width: 1.5),
-            ),
+            fillColor: Colors.white,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 4),
           ),
         ),
+        if (!isHero) Divider(color: Colors.grey.shade200),
       ],
     );
   }

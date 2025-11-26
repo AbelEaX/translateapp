@@ -33,7 +33,6 @@ class CommunityDetailScreen extends StatelessWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Background Color/Image
                   Container(color: _primaryBlue),
                   if (community.profilePictureUrl != null)
                     Opacity(
@@ -44,7 +43,6 @@ class CommunityDetailScreen extends StatelessWidget {
                       ),
                     ),
 
-                  // Gradient Overlay for readability
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -56,13 +54,11 @@ class CommunityDetailScreen extends StatelessWidget {
                     ),
                   ),
 
-                  // Centered Community Info
                   Positioned.fill(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 40), // Offset for status bar
-                        // Amber Ring Avatar
+                        const SizedBox(height: 40),
                         Container(
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
@@ -96,7 +92,6 @@ class CommunityDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
 
-                        // Glassmorphic Pill
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -127,7 +122,7 @@ class CommunityDetailScreen extends StatelessWidget {
           // --- 2. ACTION BAR & DESCRIPTION ---
           SliverToBoxAdapter(
             child: Transform.translate(
-              offset: const Offset(0, -30), // Pull up slightly over the app bar
+              offset: const Offset(0, -30),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(30),
@@ -145,17 +140,14 @@ class CommunityDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Stats Row
-
-                    SizedBox(height: 25,),
+                    const SizedBox(height: 25),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _buildStatColumn('${community.memberCount}', 'Members'),
                         Container(width: 1, height: 30, color: Colors.grey.shade200),
-                        _buildStatColumn('Active', 'Status'), // Placeholder logic
+                        _buildStatColumn('Active', 'Status'),
 
-                        // Dynamic Join Button
                         Consumer<CommunityFeedProvider>(
                           builder: (context, provider, _) {
                             final currentCommunityState = provider.allCommunities
@@ -198,7 +190,6 @@ class CommunityDetailScreen extends StatelessWidget {
                     const Divider(height: 1),
                     const SizedBox(height: 24),
 
-                    // About Section
                     Text(
                       'About Community',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryBlue),
@@ -234,7 +225,6 @@ class CommunityDetailScreen extends StatelessWidget {
           // --- 4. FILTERED FEED ---
           Consumer<CommunityFeedProvider>(
             builder: (context, provider, child) {
-              // --- ROBUST FILTERING LOGIC ---
               final communityTranslations = provider.translations.where((t) {
                 final tLang = (t.targetLang ?? '').trim().toLowerCase();
                 final tDialect = (t.dialect ?? '').trim().toLowerCase();
@@ -275,7 +265,12 @@ class CommunityDetailScreen extends StatelessWidget {
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                    return TranslationCard(entry: communityTranslations[index]);
+                    // [CHANGED] allowComments is set to true here because we are
+                    // physically viewing the translation INSIDE the community detail screen.
+                    return TranslationCard(
+                      entry: communityTranslations[index],
+                      allowComments: true,
+                    );
                   },
                   childCount: communityTranslations.length,
                 ),
@@ -283,7 +278,6 @@ class CommunityDetailScreen extends StatelessWidget {
             },
           ),
 
-          // Bottom Buffer
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),

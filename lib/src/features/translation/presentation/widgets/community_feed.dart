@@ -86,8 +86,6 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
           // Avatar
           GestureDetector(
             onTap: () {
-              // [CHANGED] Switch to the "You" (Profile) Tab (Index 2)
-              // This keeps the Bottom Navigation Bar visible
               Provider.of<NavigationProvider>(context, listen: false).setIndex(2);
             },
             child: Container(
@@ -136,7 +134,6 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Navigate to Notification Screen
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const NotificationScreen()),
@@ -146,7 +143,7 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1), // Glassmorphism
+              color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
@@ -176,13 +173,12 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
       padding: const EdgeInsets.only(bottom: 40, top: 0, left: 20.0, right: 20.0),
       child: Row(
         children: [
-          // Search Bar
           Expanded(
             child: Container(
               height: 50,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12), // Pill shape
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -209,7 +205,7 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
                       _searchController.clear();
                       Provider.of<CommunityFeedProvider>(context, listen: false)
                           .setSearchQuery('');
-                      setState(() {}); // Rebuild to hide the clear button
+                      setState(() {});
                     },
                   )
                       : null,
@@ -221,7 +217,6 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
             ),
           ),
           const SizedBox(width: 12),
-          // Filter Button
           Container(
             width: 50,
             height: 50,
@@ -271,7 +266,7 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
                   background: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const SizedBox(height: 60), // Status bar buffer
+                      const SizedBox(height: 60),
                       _buildTopHeader(context),
                       _buildBadgeNotification(),
                       _buildSearchBarAndFilter(),
@@ -286,7 +281,7 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
                   labelColor: _amberAccent,
                   unselectedLabelColor: Colors.blue.shade100,
                   indicatorWeight: 4.0,
-                  dividerColor: Colors.transparent, // Removes the grey line
+                  dividerColor: Colors.transparent,
                   labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   tabs: const [
                     Tab(text: 'Feed'),
@@ -395,18 +390,27 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
           itemCount: provider.translations.length,
           itemBuilder: (context, index) {
             final entry = provider.translations[index];
-            return TranslationCard(entry: entry);
+
+            // [ADDED] Logic to determine if user can comment in the main feed
+            // We check if the user has joined a community that matches this translation's language
+            final joinedCommunities = provider.joinedCommunities;
+            bool canComment = false;
+
+            if (entry.targetLang != null) {
+              // Check if any joined community has this language code
+              canComment = joinedCommunities.any((c) =>
+              c.languageCode.toLowerCase() == entry.targetLang!.toLowerCase()
+              );
+            }
+
+            return TranslationCard(
+              entry: entry,
+              allowComments: canComment,
+            );
           },
         );
       },
     );
-  }
-
-  // ... (Internal Community Discovery Tab components)
-  Widget _buildCommunityCard(BuildContext context, CommunityFeedProvider provider, Community community) {
-    // Implement your card UI or use existing logic
-    // Placeholder to keep file compilable if this method exists elsewhere in your original file
-    return Card(child: Text(community.name));
   }
 }
 
@@ -414,12 +418,10 @@ class _CommunityFeedState extends State<CommunityFeed> with SingleTickerProvider
 // INTERNAL WIDGET: Community Discovery Tab
 // ====================================================
 
-// ====================================================
-// INTERNAL WIDGET: Community Discovery Tab
-// ====================================================
-
 class _CommunityDiscoveryTab extends StatefulWidget {
-  const _CommunityDiscoveryTab();@override
+  const _CommunityDiscoveryTab();
+
+  @override
   State<_CommunityDiscoveryTab> createState() => _CommunityDiscoveryTabState();
 }
 
@@ -467,7 +469,6 @@ class _CommunityDiscoveryTabState extends State<_CommunityDiscoveryTab> {
           itemBuilder: (context, index) {
             final community = displayCommunities[index];
 
-            // [CHANGED] Logic to get initials from community name
             final String initials = community.name.isNotEmpty
                 ? community.name.split(' ').take(2).map((e) => e[0]).join().toUpperCase()
                 : '?';
@@ -497,7 +498,6 @@ class _CommunityDiscoveryTabState extends State<_CommunityDiscoveryTab> {
                 ),
                 child: Row(
                   children: [
-                    // [CHANGED] Initials Container instead of Icon
                     Container(
                       width: 60,
                       height: 60,
@@ -510,7 +510,7 @@ class _CommunityDiscoveryTabState extends State<_CommunityDiscoveryTab> {
                       child: Text(
                         initials,
                         style: const TextStyle(
-                          color: Color(0xFF1E3A8A), // Primary Blue
+                          color: Color(0xFF1E3A8A),
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                         ),
@@ -592,4 +592,3 @@ class _CommunityDiscoveryTabState extends State<_CommunityDiscoveryTab> {
     );
   }
 }
-
