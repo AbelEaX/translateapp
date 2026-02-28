@@ -3,24 +3,27 @@ import 'package:flutter/material.dart';
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
 
-  // Theme Constants
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Help & Support",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: theme.colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        backgroundColor: _primaryBlue,
+        backgroundColor: theme.colorScheme.primary,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: theme.colorScheme.onPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -36,26 +39,34 @@ class SupportScreen extends StatelessWidget {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
+                color: theme.colorScheme.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.support_agent_rounded, size: 50, color: _primaryBlue),
+              child: Icon(
+                Icons.support_agent_rounded,
+                size: 50,
+                color: theme.colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 24),
 
             Text(
               "How can we help you?",
               style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: _primaryBlue
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.primary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               "Our team is ready to assist you with any issues or questions about your contributions.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5),
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
             ),
 
             const SizedBox(height: 40),
@@ -63,13 +74,14 @@ class SupportScreen extends StatelessWidget {
             // --- CONTACT OPTIONS CARD ---
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardColor,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
               child: Column(
                 children: [
                   _buildContactTile(
+                    context: context,
                     icon: Icons.email_outlined,
                     title: "Email Support",
                     subtitle: "Get a response within 24h",
@@ -78,8 +90,9 @@ class SupportScreen extends StatelessWidget {
                       // Launch email logic
                     },
                   ),
-                  _buildDivider(),
+                  _buildDivider(context),
                   _buildContactTile(
+                    context: context,
                     icon: Icons.chat_bubble_outline_rounded,
                     title: "Live Chat",
                     subtitle: "Available 9am - 5pm EAT",
@@ -88,8 +101,9 @@ class SupportScreen extends StatelessWidget {
                       // Launch chat logic
                     },
                   ),
-                  _buildDivider(),
+                  _buildDivider(context),
                   _buildContactTile(
+                    context: context,
                     icon: Icons.help_outline_rounded,
                     title: "FAQs",
                     subtitle: "Find answers instantly",
@@ -108,30 +122,46 @@ class SupportScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: _primaryBlue,
+                color: theme.colorScheme.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.groups_rounded, color: _amberAccent, size: 30),
+                  Icon(
+                    Icons.groups_rounded,
+                    color: theme.colorScheme.secondary,
+                    size: 30,
+                  ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           "Ask the Community",
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           "Join our Discord server",
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary.withValues(
+                              alpha: 0.7,
+                            ),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_rounded, color: Colors.white.withOpacity(0.8)),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    color: theme.colorScheme.onPrimary.withValues(alpha: 0.8),
+                  ),
                 ],
               ),
             ),
@@ -141,17 +171,24 @@ class SupportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(height: 1, thickness: 1, color: Colors.grey.shade100, indent: 70);
+  Widget _buildDivider(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: Theme.of(context).colorScheme.outlineVariant,
+      indent: 70,
+    );
   }
 
   Widget _buildContactTile({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
     required String actionText,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -163,10 +200,10 @@ class SupportScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
+                color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: _primaryBlue, size: 24),
+              child: Icon(icon, color: theme.colorScheme.primary, size: 24),
             ),
             const SizedBox(width: 16),
 
@@ -175,9 +212,22 @@ class SupportScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -186,14 +236,18 @@ class SupportScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 actionText,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _primaryBlue),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary,
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),

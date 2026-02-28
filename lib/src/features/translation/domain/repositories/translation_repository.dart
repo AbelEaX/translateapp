@@ -1,4 +1,4 @@
-import '../entities/TranslationEntry.dart';
+﻿import '../entities/translation_entry.dart';
 
 abstract class TranslationRepository {
 

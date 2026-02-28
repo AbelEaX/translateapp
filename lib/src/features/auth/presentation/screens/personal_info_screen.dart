@@ -8,15 +8,15 @@ class PersonalInfoScreen extends StatelessWidget {
 
   const PersonalInfoScreen({super.key, required this.user});
 
-  // Theme Constants
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
-
   @override
   Widget build(BuildContext context) {
     // Provide default values if fields are null
-    final displayName = user.displayName?.isNotEmpty == true ? user.displayName! : "Not set";
-    final email = user.email?.isNotEmpty == true ? user.email! : "No email linked";
+    final displayName = user.displayName?.isNotEmpty == true
+        ? user.displayName!
+        : "Not set";
+    final email = user.email?.isNotEmpty == true
+        ? user.email!
+        : "No email linked";
     final userId = user.id;
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : "?";
 
@@ -25,17 +25,23 @@ class PersonalInfoScreen extends StatelessWidget {
     final String? photoUrl = authUser?.photoURL;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Personal Info",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        backgroundColor: _primaryBlue,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -54,40 +60,52 @@ class PersonalInfoScreen extends StatelessWidget {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: Colors.indigo.shade50,
+                      color: Theme.of(context).colorScheme.primaryContainer,
                       shape: BoxShape.circle,
-                      border: Border.all(color: _amberAccent, width: 3), // Consistent Amber Ring
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.secondary,
+                        width: 3,
+                      ), // Consistent Amber Ring
                       // If photoUrl exists, show the image
                       image: photoUrl != null
                           ? DecorationImage(
-                        image: NetworkImage(photoUrl),
-                        fit: BoxFit.cover,
-                      )
+                              image: NetworkImage(photoUrl),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     // Fallback to initials if no image
                     child: photoUrl == null
                         ? Center(
-                      child: Text(
-                        initial,
-                        style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.w800,
-                            color: _primaryBlue
-                        ),
-                      ),
-                    )
+                            child: Text(
+                              initial,
+                              style: TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          )
                         : null,
                   ),
                   // Edit Icon Badge (Visual only for now)
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: _primaryBlue,
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        width: 2,
+                      ),
                     ),
-                    child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                    child: Icon(
+                      Icons.edit,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      size: 14,
+                    ),
                   ),
                 ],
               ),
@@ -98,9 +116,11 @@ class PersonalInfoScreen extends StatelessWidget {
             // --- INFO CARD ---
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade200), // Clean Border, No Shadow
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ), // Clean Border, No Shadow
               ),
               child: Column(
                 children: [
@@ -135,7 +155,10 @@ class PersonalInfoScreen extends StatelessWidget {
             Text(
               "To update your personal details, please contact support or use the edit button above (coming soon).",
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -144,10 +167,20 @@ class PersonalInfoScreen extends StatelessWidget {
   }
 
   Widget _buildDivider() {
-    return Divider(height: 1, thickness: 1, color: Colors.grey.shade100, indent: 70);
+    return Builder(
+      builder: (context) {
+        return Divider(
+          height: 1,
+          thickness: 1,
+          color: Theme.of(context).colorScheme.outlineVariant,
+          indent: 70,
+        );
+      },
+    );
   }
 
-  Widget _buildInfoTile(BuildContext context, {
+  Widget _buildInfoTile(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
@@ -161,10 +194,14 @@ class PersonalInfoScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.indigo.shade50,
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: _primaryBlue, size: 22),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 16),
 
@@ -173,14 +210,21 @@ class PersonalInfoScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -191,13 +235,22 @@ class PersonalInfoScreen extends StatelessWidget {
           // Copy Action
           if (isCopyable)
             IconButton(
-              icon: Icon(Icons.copy_rounded, color: Colors.grey.shade400, size: 20),
+              icon: Icon(
+                Icons.copy_rounded,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    backgroundColor: _primaryBlue,
-                    content: const Text("User ID copied to clipboard"),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    content: Text(
+                      "User ID copied to clipboard",
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
                     duration: const Duration(seconds: 1),
                   ),
                 );

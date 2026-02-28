@@ -1,5 +1,5 @@
-import '../entities/TranslationEntry.dart';
-import '../repositories/TranslationRepository.dart';
+﻿import '../entities/translation_entry.dart';
+import '../repositories/translation_repository.dart';
 
 class SubmitTranslation {
   final TranslationRepository repository;

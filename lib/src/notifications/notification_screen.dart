@@ -1,120 +1,184 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:translate/src/notifications/domain/entities/notification_entity.dart';
+import 'package:translate/src/notifications/presentation/providers/notification_provider.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
-  // Theme Constants
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
-
   @override
   Widget build(BuildContext context) {
-    // Mock Data for UI demonstration
-    final List<Map<String, dynamic>> notifications = [
-      {
-        'type': 'badge',
-        'title': 'New Badge Unlocked!',
-        'message': 'You earned the "Dialect Master" badge for 50 contributions.',
-        'time': DateTime.now().subtract(const Duration(minutes: 5)),
-        'isRead': false,
-      },
-      {
-        'type': 'upvote',
-        'title': 'Translation Upvoted',
-        'message': 'Your translation for "Marketplace" reached 100 upvotes.',
-        'time': DateTime.now().subtract(const Duration(hours: 2)),
-        'isRead': false,
-      },
-      {
-        'type': 'system',
-        'title': 'Community Challenge',
-        'message': 'Join the "Acholi Proverbs" challenge this weekend!',
-        'time': DateTime.now().subtract(const Duration(days: 1)),
-        'isRead': true,
-      },
-    ];
-
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: _primaryBlue,
+        backgroundColor: theme.colorScheme.primary,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: theme.colorScheme.onPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Notifications',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: theme.colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.done_all_rounded, color: Colors.white),
-            onPressed: () {},
-            tooltip: "Mark all as read",
-          )
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) {
+              final hasUnread = provider.unreadCount > 0;
+              return IconButton(
+                icon: Icon(
+                  Icons.done_all_rounded,
+                  color: hasUnread
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onPrimary.withValues(alpha: 0.4),
+                ),
+                onPressed: hasUnread ? provider.markAllAsRead : null,
+                tooltip: 'Mark all as read',
+              );
+            },
+          ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: notifications.length,
-        itemBuilder: (context, index) {
-          final notif = notifications[index];
-          return _buildNotificationCard(context, notif);
+      body: Consumer<NotificationProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading) {
+            return Center(
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+              ),
+            );
+          }
+
+          if (provider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Failed to load notifications',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (provider.notifications.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.notifications_none_rounded,
+                    size: 64,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'All caught up!',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'New notifications will appear here.',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: provider.notifications.length,
+            itemBuilder: (context, index) {
+              final notif = provider.notifications[index];
+              return _NotificationCard(
+                notification: notif,
+                onTap: () => provider.markAsRead(notif.id),
+              );
+            },
+          );
         },
       ),
     );
   }
+}
 
-  Widget _buildNotificationCard(BuildContext context, Map<String, dynamic> notif) {
-    final bool isBadge = notif['type'] == 'badge';
-    final bool isUpvote = notif['type'] == 'upvote';
-    final bool isRead = notif['isRead'];
+class _NotificationCard extends StatelessWidget {
+  final NotificationEntity notification;
+  final VoidCallback onTap;
 
-    IconData icon;
-    Color iconColor;
-    Color iconBg;
+  const _NotificationCard({required this.notification, required this.onTap});
 
-    if (isBadge) {
-      icon = Icons.stars_rounded;
-      iconColor = _amberAccent;
-      iconBg = Colors.orange.shade50;
-    } else if (isUpvote) {
-      icon = Icons.thumb_up_rounded;
-      iconColor = _primaryBlue;
-      iconBg = Colors.indigo.shade50;
-    } else {
-      icon = Icons.notifications_active_rounded;
-      iconColor = Colors.teal;
-      iconBg = Colors.teal.shade50;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isRead = notification.isRead;
+
+    late final IconData icon;
+    late final Color iconBg;
+    late final Color iconColor;
+
+    switch (notification.type) {
+      case 'upvote':
+        icon = Icons.thumb_up_rounded;
+        iconBg = cs.primaryContainer;
+        iconColor = cs.onPrimaryContainer;
+      case 'comment':
+        icon = Icons.chat_bubble_rounded;
+        iconBg = cs.secondaryContainer;
+        iconColor = cs.onSecondaryContainer;
+      case 'badge':
+        icon = Icons.stars_rounded;
+        iconBg = cs.tertiaryContainer;
+        iconColor = cs.onTertiaryContainer;
+      default: // 'system'
+        icon = Icons.notifications_active_rounded;
+        iconBg = cs.surfaceContainerHighest;
+        iconColor = cs.onSurfaceVariant;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isRead ? Colors.white : Colors.blue.shade50.withOpacity(0.4),
+        color: isRead ? theme.cardColor : cs.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: isRead ? Border.all(color: Colors.transparent) : Border.all(color: _primaryBlue.withOpacity(0.1)),
+        border: Border.all(
+          color: isRead ? cs.outlineVariant : cs.primary.withValues(alpha: 0.2),
+        ),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon Container
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -124,8 +188,6 @@ class NotificationScreen extends StatelessWidget {
                   child: Icon(icon, color: iconColor, size: 22),
                 ),
                 const SizedBox(width: 16),
-
-                // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,20 +195,25 @@ class NotificationScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            notif['title'],
-                            style: TextStyle(
-                              fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
-                              fontSize: 15,
-                              color: Colors.black87,
+                          Expanded(
+                            child: Text(
+                              notification.title,
+                              style: TextStyle(
+                                fontWeight: isRead
+                                    ? FontWeight.w600
+                                    : FontWeight.w800,
+                                fontSize: 15,
+                                color: cs.onSurface,
+                              ),
                             ),
                           ),
                           if (!isRead)
                             Container(
                               width: 8,
                               height: 8,
+                              margin: const EdgeInsets.only(left: 8),
                               decoration: BoxDecoration(
-                                color: _amberAccent,
+                                color: cs.primary,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -154,18 +221,18 @@ class NotificationScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        notif['message'],
+                        notification.body,
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: cs.onSurfaceVariant,
                           fontSize: 13,
                           height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        timeago.format(notif['time']),
+                        timeago.format(notification.createdAt),
                         style: TextStyle(
-                          color: Colors.grey.shade400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),

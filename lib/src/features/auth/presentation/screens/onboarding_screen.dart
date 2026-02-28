@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:translate/src/features/auth/presentation/screens/auth_gate.dart';
 
-// Theme Constants (Consistent with AppShell & CommunityFeed)
-const Color kPrimaryBlue = Color(0xFF1E3A8A);
-const Color kAmberAccent = Colors.amber;
-const Color kBackgroundColor = Color(0xFFF9FAFB); // Grey.shade50 equivalent
+// Removed Hardcoded Theme Constants
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -20,17 +17,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Map<String, dynamic>> _pages = [
     {
       'title': 'Bridge the Gap',
-      'subtitle': 'Connect with communities worldwide. Break language barriers instantly.',
-      'icon': Icons.public_rounded, // Using Icons instead of images for cleaner look
+      'subtitle':
+          'Connect with communities worldwide. Break language barriers instantly.',
+      'icon': Icons
+          .public_rounded, // Using Icons instead of images for cleaner look
     },
     {
       'title': 'Voice of the People',
-      'subtitle': 'Translate distinct dialects and slang that standard apps miss.',
+      'subtitle':
+          'Translate distinct dialects and slang that standard apps miss.',
       'icon': Icons.record_voice_over_rounded,
     },
     {
       'title': 'Earn & Climb',
-      'subtitle': 'Contribute translations, earn points, and top the community leaderboard.',
+      'subtitle':
+          'Contribute translations, earn points, and top the community leaderboard.',
       'icon': Icons.emoji_events_rounded,
     },
   ];
@@ -47,7 +48,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBackgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Background decorative circle
@@ -59,7 +60,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: kPrimaryBlue.withOpacity(0.1),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -79,11 +82,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Container(
                       padding: const EdgeInsets.all(40),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: kPrimaryBlue.withOpacity(0.15),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.15),
                             blurRadius: 30,
                             offset: const Offset(0, 10),
                           ),
@@ -92,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: Icon(
                         pageData['icon'],
                         size: 100,
-                        color: kPrimaryBlue,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: 60),
@@ -101,8 +106,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Text(
                       pageData['title'],
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: kPrimaryBlue,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -113,7 +118,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       pageData['subtitle'],
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 16,
                         height: 1.5,
                         fontWeight: FontWeight.w500,
@@ -137,13 +142,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Row(
                   children: List.generate(
                     _pages.length,
-                        (index) => AnimatedContainer(
+                    (index) => AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       margin: const EdgeInsets.only(right: 8),
                       height: 8,
                       width: _currentPage == index ? 24 : 8,
                       decoration: BoxDecoration(
-                        color: _currentPage == index ? kAmberAccent : Colors.grey.shade300,
+                        color: _currentPage == index
+                            ? Theme.of(context).colorScheme.secondary
+                            : Theme.of(context).colorScheme.outlineVariant,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -155,27 +162,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: () {
                     if (_currentPage == _pages.length - 1) {
                       Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (context) => const AuthGate()),
+                        MaterialPageRoute(
+                          builder: (context) => const AuthGate(),
+                        ),
                       );
                     } else {
                       _onNext();
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                     elevation: 4,
-                    shadowColor: kPrimaryBlue.withOpacity(0.4),
+                    shadowColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
+                        _currentPage == _pages.length - 1
+                            ? 'Get Started'
+                            : 'Next',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,

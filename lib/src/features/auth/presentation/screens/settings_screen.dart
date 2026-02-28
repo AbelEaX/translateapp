@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:translate/src/core/theme/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,27 +11,31 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushNotifications = true;
-  bool _darkMode = false;
   bool _dataSaver = false;
-
-  // Theme Constants
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Settings",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: theme.colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        backgroundColor: _primaryBlue,
+        backgroundColor: theme.colorScheme.primary,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: theme.colorScheme.onPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -38,15 +44,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader("Preferences"),
+            _buildSectionHeader(theme, "Preferences"),
             const SizedBox(height: 16),
 
             // --- NOTIFICATIONS CARD ---
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardColor,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
               child: Column(
                 children: [
@@ -55,10 +61,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: "Push Notifications",
                     subtitle: "Receive updates about your contributions",
                     value: _pushNotifications,
-                    onChanged: (val) => setState(() => _pushNotifications = val),
+                    onChanged: (val) =>
+                        setState(() => _pushNotifications = val),
+                    theme: theme,
                   ),
-                  _buildDivider(),
+                  _buildDivider(theme),
                   _buildSwitchTile(
+                    theme: theme,
                     icon: Icons.email_outlined,
                     title: "Email Digests",
                     subtitle: "Weekly summary of community activity",
@@ -70,27 +79,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 30),
-            _buildSectionHeader("Appearance & Data"),
+            _buildSectionHeader(theme, "Appearance & Data"),
             const SizedBox(height: 16),
 
             // --- APPEARANCE CARD ---
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardColor,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
               child: Column(
                 children: [
                   _buildSwitchTile(
+                    theme: theme,
                     icon: Icons.dark_mode_outlined,
                     title: "Dark Mode",
                     subtitle: "Reduce eye strain at night",
-                    value: _darkMode,
-                    onChanged: (val) => setState(() => _darkMode = val),
+                    value: themeProvider.isDarkMode,
+                    onChanged: (val) {
+                      themeProvider.toggleTheme();
+                    },
                   ),
-                  _buildDivider(),
+                  _buildDivider(theme),
                   _buildSwitchTile(
+                    theme: theme,
                     icon: Icons.data_saver_on_outlined,
                     title: "Data Saver",
                     subtitle: "Reduce data usage for images",
@@ -102,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 30),
-            _buildSectionHeader("Account Actions"),
+            _buildSectionHeader(theme, "Account Actions"),
             const SizedBox(height: 16),
 
             // --- DELETE ACCOUNT BUTTON ---
@@ -114,12 +127,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  backgroundColor: Colors.red.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  backgroundColor: theme.colorScheme.error.withValues(
+                    alpha: 0.1,
+                  ),
                 ),
                 child: Text(
                   "Delete Account",
-                  style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -128,7 +148,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Center(
               child: Text(
                 "Version 1.0.0",
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -137,13 +160,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(ThemeData theme, String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 8.0),
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: _primaryBlue,
+          color: theme.colorScheme.primary,
           fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.2,
@@ -152,11 +175,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(height: 1, thickness: 1, color: Colors.grey.shade100, indent: 70);
+  Widget _buildDivider(ThemeData theme) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: theme.colorScheme.outlineVariant,
+      indent: 70,
+    );
   }
 
   Widget _buildSwitchTile({
+    required ThemeData theme,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -166,28 +195,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: SwitchListTile(
-        activeColor: _amberAccent,
-        activeTrackColor: Colors.amber.shade100,
-        inactiveThumbColor: Colors.grey.shade400,
-        inactiveTrackColor: Colors.grey.shade200,
+        activeTrackColor: theme.colorScheme.secondary.withValues(alpha: 0.5),
+        inactiveThumbColor: theme.colorScheme.onSurfaceVariant,
+        inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         value: value,
         onChanged: onChanged,
         secondary: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.indigo.shade50,
+            color: theme.colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: _primaryBlue, size: 22),
+          child: Icon(
+            icon,
+            color: theme.colorScheme.onPrimaryContainer,
+            size: 22,
+          ),
         ),
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          style: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
         ),
       ),
     );

@@ -1,9 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart'; // Required for Firebase.app()
-import 'package:translate/src/core/config/constants.dart'; // Required for DB ID
-import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';
+import 'package:translate/src/features/translation/domain/entities/translation_entry.dart';
 import 'package:translate/src/features/translation/presentation/providers/community_feed_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -27,30 +25,35 @@ class TranslationCard extends StatelessWidget {
     return NumberFormat.compact().format(count);
   }
 
-  // --- Helper to fetch user name asynchronously ---
-  Future<String> _fetchContributorName() async {
-    if (entry.userId.isEmpty) return 'Anonymous Contributor';
+  // --- Helper to fetch user name & badge asynchronously ---
+  Future<Map<String, String?>> _fetchContributorInfo() async {
+    if (entry.userId.isEmpty) {
+      return {'name': 'Anonymous Contributor', 'badge': null};
+    }
 
     try {
-      // [FIX] Use the specific database instance defined in constants
-      final customDb = FirebaseFirestore.instanceFor(
-        app: Firebase.app(),
-        databaseId: TRANSLATION_FIRESTORE_DB_ID,
-      );
-
-      final doc = await customDb
+      // User profiles live in the DEFAULT Firestore database, not gotranslate.
+      final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(entry.userId)
           .get();
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        return data['displayName'] as String? ?? 'Community Member';
+        final name =
+            (data['displayName'] as String?) ??
+            (data['name'] as String?) ??
+            (data['email'] as String?) ??
+            'Community Member';
+
+        final badge = data['badge'] as String?;
+
+        return {'name': name, 'badge': badge};
       }
     } catch (e) {
       debugPrint("Error fetching user name: $e");
     }
-    return 'Community Member';
+    return {'name': 'Community Member', 'badge': null};
   }
 
   // --- Helper method to open comments ---
@@ -67,20 +70,27 @@ class TranslationCard extends StatelessWidget {
   void _shareTranslation(BuildContext context) {
     final String textToShare =
         'Check out this translation on GoTranslate!\n\n'
-        '${entry.sourceLang} ➡ ${entry.targetLang}\n'
+        '${entry.sourceLang} \u2192 ${entry.targetLang}\n'
         '"${entry.sourceText}" means "${entry.translatedText}"\n\n'
         '${entry.context.isNotEmpty ? "Context: ${entry.context}\n" : ""}'
         'Join the community to learn more!';
 
+    // ignore: deprecated_member_use
     Share.share(textToShare);
   }
 
   // --- Helper to handle voting ---
-  void _handleVote(BuildContext context, CommunityFeedProvider provider, User? currentUser, TranslationEntry entry, int scoreChange) {
+  void _handleVote(
+    BuildContext context,
+    CommunityFeedProvider provider,
+    User? currentUser,
+    TranslationEntry entry,
+    int scoreChange,
+  ) {
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please sign in to vote!")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please sign in to vote!")));
       return;
     }
     provider.updateScore(entry.id ?? '', currentUser.uid, scoreChange);
@@ -97,16 +107,18 @@ class TranslationCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withOpacity(0.05),
+            color: Theme.of(
+              context,
+            ).colorScheme.secondary.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.03),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -120,69 +132,153 @@ class TranslationCard extends StatelessWidget {
             // --- Header: User Info & Language Badge ---
             Row(
               children: [
-                FutureBuilder<String>(
-                    future: _fetchContributorName(),
-                    builder: (context, snapshot) {
-                      final name = snapshot.data ?? '?';
-                      final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+                FutureBuilder<Map<String, String?>>(
+                  future: _fetchContributorInfo(),
+                  builder: (context, snapshot) {
+                    final info = snapshot.data;
+                    final name = info?['name'] ?? '?';
+                    final letter = name.isNotEmpty
+                        ? name[0].toUpperCase()
+                        : '?';
 
-                      return CircleAvatar(
-                        radius: 18,
-                        backgroundColor: const Color(0xFF1E3A8A),
-                        child: Text(
-                          letter,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    return CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Text(
+                        letter,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontWeight: FontWeight.bold,
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      FutureBuilder<String>(
-                        future: _fetchContributorName(),
+                      FutureBuilder<Map<String, String?>>(
+                        future: _fetchContributorInfo(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return Container(
                               width: 100,
                               height: 14,
                               decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(4)
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
                               ),
                             );
                           }
-                          return Text(
-                            snapshot.data ?? 'Community Member',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                                color: Colors.black87
-                            ),
-                            overflow: TextOverflow.ellipsis,
+
+                          final info = snapshot.data;
+                          final name = info?['name'] ?? 'Community Member';
+                          final badge = info?['badge'];
+
+                          return Row(
+                            children: [
+                              Text(
+                                name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (badge != null && badge.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      badge,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           );
                         },
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Contributed ${timeago.format(entry.createdAt)}',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.orange.shade100),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
-                  child: Text(
-                    '${entry.sourceLang} → ${entry.targetLang}',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.orange.shade800),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.secondary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        entry.sourceLang,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                      Text(
+                        entry.targetLang,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -198,7 +294,7 @@ class TranslationCard extends StatelessWidget {
                   Container(
                     width: 4,
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade400,
+                      color: Theme.of(context).colorScheme.secondary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -209,16 +305,23 @@ class TranslationCard extends StatelessWidget {
                       children: [
                         Text(
                           entry.sourceText,
-                          style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.5, fontWeight: FontWeight.w400),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.color,
+                            height: 1.5,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           entry.translatedText,
-                          style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E3A8A),
-                              height: 1.3
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.primary,
+                            height: 1.3,
                           ),
                         ),
                       ],
@@ -233,26 +336,41 @@ class TranslationCard extends StatelessWidget {
             if (entry.context.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lightbulb_outline, size: 14, color: Colors.amber.shade700),
+                    Icon(
+                      Icons.lightbulb_outline,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
                     const SizedBox(width: 6),
-                    Text(
-                      'Context: ${entry.context}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                    Flexible(
+                      child: Text(
+                        'Context: ${entry.context}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
 
-            const Divider(height: 1, color: Color(0xFFEEEEEE)),
+            Divider(height: 1, color: Theme.of(context).dividerColor),
             const SizedBox(height: 16),
 
             // --- Footer: Voting & Actions ---
@@ -263,57 +381,97 @@ class TranslationCard extends StatelessWidget {
                 Container(
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                   child: Row(
                     children: [
                       InkWell(
-                        onTap: () => _handleVote(context, provider, currentUser, entry, 1),
-                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(30)),
+                        onTap: () => _handleVote(
+                          context,
+                          provider,
+                          currentUser,
+                          entry,
+                          1,
+                        ),
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(30),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14.0),
                           child: Row(
                             children: [
                               Icon(
-                                  isUpvoted ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
-                                  size: 18,
-                                  color: isUpvoted ? Colors.amber.shade800 : Colors.grey.shade600
+                                isUpvoted
+                                    ? Icons.thumb_up_rounded
+                                    : Icons.thumb_up_outlined,
+                                size: 18,
+                                color: isUpvoted
+                                    ? Theme.of(context).colorScheme.secondary
+                                    : Theme.of(context).iconTheme.color,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 _formatCount(entry.upvotes),
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: isUpvoted ? Colors.amber.shade900 : Colors.grey.shade700
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: isUpvoted
+                                      ? Theme.of(context).colorScheme.secondary
+                                      : Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      Container(width: 1, height: 20, color: Colors.grey.shade300),
+                      Container(
+                        width: 1,
+                        height: 20,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                       InkWell(
-                        onTap: () => _handleVote(context, provider, currentUser, entry, -1),
-                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(30)),
+                        onTap: () => _handleVote(
+                          context,
+                          provider,
+                          currentUser,
+                          entry,
+                          -1,
+                        ),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(30),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14.0),
                           child: Row(
                             children: [
                               Icon(
-                                  isDownvoted ? Icons.thumb_down_rounded : Icons.thumb_down_outlined,
-                                  size: 18,
-                                  color: isDownvoted ? Colors.red.shade400 : Colors.grey.shade600
+                                isDownvoted
+                                    ? Icons.thumb_down_rounded
+                                    : Icons.thumb_down_outlined,
+                                size: 18,
+                                color: isDownvoted
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).iconTheme.color,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 _formatCount(entry.downvotes),
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: isDownvoted ? Colors.red.shade400 : Colors.grey.shade700
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: isDownvoted
+                                      ? Theme.of(context).colorScheme.error
+                                      : Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
                                 ),
                               ),
                             ],
@@ -333,21 +491,30 @@ class TranslationCard extends StatelessWidget {
                         onTap: () => _openComments(context),
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 8,
+                          ),
                           child: Row(
                             children: [
-                              Icon(Icons.chat_bubble_outline_rounded, size: 22, color: Colors.grey.shade400),
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 22,
+                                color: Theme.of(context).iconTheme.color,
+                              ),
                               if (entry.commentCount > 0) ...[
                                 const SizedBox(width: 4),
                                 Text(
                                   _formatCount(entry.commentCount),
                                   style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade600
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.color,
                                   ),
                                 ),
-                              ]
+                              ],
                             ],
                           ),
                         ),
@@ -355,7 +522,7 @@ class TranslationCard extends StatelessWidget {
 
                     IconButton(
                       icon: const Icon(Icons.volume_up_rounded),
-                      color: Colors.grey.shade400,
+                      color: Theme.of(context).iconTheme.color,
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text("Audio coming soon!")),
@@ -364,7 +531,7 @@ class TranslationCard extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.share_rounded),
-                      color: Colors.grey.shade400,
+                      color: Theme.of(context).iconTheme.color,
                       onPressed: () => _shareTranslation(context),
                     ),
                   ],
@@ -373,7 +540,9 @@ class TranslationCard extends StatelessWidget {
             ),
 
             // Latest Comment Preview
-            if (allowComments && entry.latestCommentText != null && entry.latestCommentText!.isNotEmpty) ...[
+            if (allowComments &&
+                entry.latestCommentText != null &&
+                entry.latestCommentText!.isNotEmpty) ...[
               const SizedBox(height: 16),
               InkWell(
                 onTap: () => _openComments(context),
@@ -381,9 +550,15 @@ class TranslationCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.shade50.withOpacity(0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.indigo.shade50),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
+                    ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,12 +566,19 @@ class TranslationCard extends StatelessWidget {
                       // Tiny Avatar or Icon
                       CircleAvatar(
                         radius: 10,
-                        backgroundColor: Colors.indigo.shade100,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.2),
                         child: Text(
-                          (entry.latestCommentUser != null && entry.latestCommentUser!.isNotEmpty)
+                          (entry.latestCommentUser != null &&
+                                  entry.latestCommentUser!.isNotEmpty)
                               ? entry.latestCommentUser![0].toUpperCase()
                               : '?',
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -405,15 +587,26 @@ class TranslationCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           text: TextSpan(
-                            style: const TextStyle(fontSize: 13, color: Colors.black87),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                             children: [
                               TextSpan(
-                                text: "${entry.latestCommentUser ?? 'Someone'}: ",
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                                text:
+                                    "${entry.latestCommentUser ?? 'Someone'}: ",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                               TextSpan(
                                 text: entry.latestCommentText,
-                                style: TextStyle(color: Colors.grey.shade700),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ],
                           ),

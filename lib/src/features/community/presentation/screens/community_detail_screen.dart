@@ -10,30 +10,29 @@ class CommunityDetailScreen extends StatelessWidget {
 
   const CommunityDetailScreen({super.key, required this.community});
 
-  // Theme Constants
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           // --- 1. IMMERSIVE HEADER ---
           SliverAppBar(
             expandedHeight: 280.0,
             pinned: true,
-            backgroundColor: _primaryBlue,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Container(color: _primaryBlue),
+                  Container(color: Theme.of(context).colorScheme.primary),
                   if (community.profilePictureUrl != null)
                     Opacity(
                       opacity: 0.4,
@@ -43,13 +42,18 @@ class CommunityDetailScreen extends StatelessWidget {
                       ),
                     ),
 
-                  const DecoratedBox(
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
-                        stops: [0.6, 1.0],
+                        colors: [
+                          Colors.transparent,
+                          Theme.of(
+                            context,
+                          ).colorScheme.scrim.withValues(alpha: 0.8),
+                        ],
+                        stops: const [0.6, 1.0],
                       ),
                     ),
                   ),
@@ -63,19 +67,36 @@ class CommunityDetailScreen extends StatelessWidget {
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: _amberAccent, width: 2),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.secondary,
+                              width: 2,
+                            ),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5))
+                              BoxShadow(
+                                color: Theme.of(
+                                  context,
+                                ).shadowColor.withValues(alpha: 0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
                             ],
                           ),
                           child: CircleAvatar(
                             radius: 40,
-                            backgroundColor: Colors.indigo.shade100,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.2),
                             backgroundImage: community.profilePictureUrl != null
                                 ? NetworkImage(community.profilePictureUrl!)
                                 : null,
                             child: community.profilePictureUrl == null
-                                ? Icon(Icons.groups_rounded, size: 40, color: _primaryBlue)
+                                ? Icon(
+                                    Icons.groups_rounded,
+                                    size: 40,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  )
                                 : null,
                           ),
                         ),
@@ -83,8 +104,8 @@ class CommunityDetailScreen extends StatelessWidget {
                         Text(
                           community.name,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimary,
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
@@ -93,20 +114,41 @@ class CommunityDetailScreen extends StatelessWidget {
                         const SizedBox(height: 8),
 
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimary.withValues(alpha: 0.1),
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.public, color: Colors.blue.shade100, size: 14),
+                              Icon(
+                                Icons.public,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary.withValues(alpha: 0.8),
+                                size: 14,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 'Language Code: ${community.languageCode.toUpperCase()}',
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -127,13 +169,18 @@ class CommunityDetailScreen extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(30),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                      color: Theme.of(
+                        context,
+                      ).shadowColor.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
@@ -144,14 +191,26 @@ class CommunityDetailScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildStatColumn('${community.memberCount}', 'Members'),
-                        Container(width: 1, height: 30, color: Colors.grey.shade200),
-                        _buildStatColumn('Active', 'Status'),
+                        _buildStatColumn(
+                          context,
+                          '${community.memberCount}',
+                          'Members',
+                        ),
+                        Container(
+                          width: 1,
+                          height: 30,
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                        _buildStatColumn(context, 'Active', 'Status'),
 
                         Consumer<CommunityFeedProvider>(
                           builder: (context, provider, _) {
-                            final currentCommunityState = provider.allCommunities
-                                .firstWhere((c) => c.id == community.id, orElse: () => community);
+                            final currentCommunityState = provider
+                                .allCommunities
+                                .firstWhere(
+                                  (c) => c.id == community.id,
+                                  orElse: () => community,
+                                );
                             final isJoined = currentCommunityState.isJoined;
 
                             return InkWell(
@@ -165,25 +224,36 @@ class CommunityDetailScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(30),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 300),
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
-                                    color: isJoined ? Colors.grey.shade100 : _primaryBlue,
-                                    borderRadius: BorderRadius.circular(30),
-                                    boxShadow: isJoined ? [] : [
-                                      BoxShadow(color: _primaryBlue.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))
-                                    ]
+                                  color: isJoined
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest
+                                      : Theme.of(context).colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: [],
                                 ),
                                 child: Text(
                                   isJoined ? 'Joined' : 'Join Now',
                                   style: TextStyle(
-                                    color: isJoined ? Colors.grey.shade800 : Colors.white,
+                                    color: isJoined
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                             );
                           },
-                        )
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -192,12 +262,22 @@ class CommunityDetailScreen extends StatelessWidget {
 
                     Text(
                       'About Community',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryBlue),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      community.description.isNotEmpty ? community.description : 'No description provided.',
-                      style: TextStyle(fontSize: 15, height: 1.5, color: Colors.grey.shade600),
+                      community.description.isNotEmpty
+                          ? community.description
+                          : 'No description provided.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -211,11 +291,22 @@ class CommunityDetailScreen extends StatelessWidget {
             sliver: SliverToBoxAdapter(
               child: Row(
                 children: [
-                  Container(width: 4, height: 24, decoration: BoxDecoration(color: _amberAccent, borderRadius: BorderRadius.circular(2))),
+                  Container(
+                    width: 4,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     'Recent Contributions',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _primaryBlue),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ],
               ),
@@ -226,14 +317,15 @@ class CommunityDetailScreen extends StatelessWidget {
           Consumer<CommunityFeedProvider>(
             builder: (context, provider, child) {
               final communityTranslations = provider.translations.where((t) {
-                final tLang = (t.targetLang ?? '').trim().toLowerCase();
-                final tDialect = (t.dialect ?? '').trim().toLowerCase();
+                final tLang = t.targetLang.trim().toLowerCase();
+                final tDialect = t.dialect.trim().toLowerCase();
                 final cCode = community.languageCode.trim().toLowerCase();
                 final cName = community.name.trim().toLowerCase();
 
                 bool codeMatch = tLang.isNotEmpty && tLang == cCode;
                 bool nameMatch = tLang.isNotEmpty && cName.contains(tLang);
-                bool dialectMatch = tDialect.isNotEmpty && cName.contains(tDialect);
+                bool dialectMatch =
+                    tDialect.isNotEmpty && cName.contains(tDialect);
 
                 return codeMatch || nameMatch || dialectMatch;
               }).toList();
@@ -245,16 +337,30 @@ class CommunityDetailScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.rate_review_outlined, size: 60, color: Colors.grey.shade300),
+                        Icon(
+                          Icons.rate_review_outlined,
+                          size: 60,
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           "No translations yet.",
-                          style: TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           "Join and be the first to contribute!",
-                          style: TextStyle(color: Colors.grey),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -263,17 +369,14 @@ class CommunityDetailScreen extends StatelessWidget {
               }
 
               return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                    // [CHANGED] allowComments is set to true here because we are
-                    // physically viewing the translation INSIDE the community detail screen.
-                    return TranslationCard(
-                      entry: communityTranslations[index],
-                      allowComments: true,
-                    );
-                  },
-                  childCount: communityTranslations.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  // [CHANGED] allowComments is set to true here because we are
+                  // physically viewing the translation INSIDE the community detail screen.
+                  return TranslationCard(
+                    entry: communityTranslations[index],
+                    allowComments: true,
+                  );
+                }, childCount: communityTranslations.length),
               );
             },
           ),
@@ -291,25 +394,36 @@ class CommunityDetailScreen extends StatelessWidget {
           // 2. Switch the main tab to "Submit" (Index 1)
           Provider.of<NavigationProvider>(context, listen: false).setIndex(1);
         },
-        label: const Text('Contribute', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Contribute',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         icon: const Icon(Icons.add_comment_rounded),
-        backgroundColor: _amberAccent,
-        foregroundColor: Colors.black87,
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+        foregroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 4,
       ),
     );
   }
 
-  Widget _buildStatColumn(String value, String label) {
+  Widget _buildStatColumn(BuildContext context, String value, String label) {
     return Column(
       children: [
         Text(
           value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );

@@ -1,1 +1,43 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"chillihub-3359c","appId":"1:18688200948:android:f6ee09f985b7b3d2080ea1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"chillihub-3359c","configurations":{"android":"1:18688200948:android:f6ee09f985b7b3d2080ea1","ios":"1:18688200948:ios:ee1f7bf1a5c9ce03080ea1","macos":"1:18688200948:ios:ee1f7bf1a5c9ce03080ea1","web":"1:18688200948:web:0a42d28730a6789e080ea1","windows":"1:18688200948:web:72cdd1b7ebbbf789080ea1"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "chillihub-3359c",
+          "appId": "1:18688200948:android:f6ee09f985b7b3d2080ea1",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "chillihub-3359c",
+          "configurations": {
+            "android": "1:18688200948:android:f6ee09f985b7b3d2080ea1",
+            "ios": "1:18688200948:ios:ee1f7bf1a5c9ce03080ea1",
+            "macos": "1:18688200948:ios:ee1f7bf1a5c9ce03080ea1",
+            "web": "1:18688200948:web:0a42d28730a6789e080ea1",
+            "windows": "1:18688200948:web:72cdd1b7ebbbf789080ea1"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
-import 'package:translate/src/core/utils/community_seeder.dart';
+
 import 'package:translate/src/features/auth/presentation/providers/auth_provider.dart';
 import 'package:translate/src/features/community/presentation/screens/leaderboard_screen.dart';
 import 'package:translate/src/features/translation/presentation/screens/contributions_screen.dart';
@@ -26,10 +26,6 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   late Future<UserEntity> _userProfileFuture;
-
-  // Theme Constants (Matching Community Feed)
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
 
   @override
   void initState() {
@@ -58,10 +54,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       } else {
         final authUser = FirebaseAuth.instance.currentUser;
         return UserModel(
-            id: userId,
-            displayName: authUser?.displayName ?? 'New User',
-            email: authUser?.email,
-            points: 0
+          id: userId,
+          displayName: authUser?.displayName ?? 'New User',
+          email: authUser?.email,
+          points: 0,
         );
       }
     } catch (e) {
@@ -80,7 +76,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // to LoginScreen when the user state becomes null.
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error signing out: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error signing out: $e")));
       }
     }
   }
@@ -91,22 +89,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       context: context,
       builder: (BuildContext ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text(
             "Sign Out",
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
-          content: const Text(
+          content: Text(
             "Are you sure you want to log out of your account?",
-            style: TextStyle(fontSize: 15, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 15,
+              color: Theme.of(ctx).colorScheme.onSurface,
+            ),
           ),
-          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(
                 "Cancel",
-                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             TextButton(
@@ -114,7 +123,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Navigator.of(ctx).pop(); // Close dialog
                 _handleSignOut(context); // Perform sign out
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red.shade400),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(ctx).colorScheme.error,
+              ),
               child: const Text(
                 "Sign Out",
                 style: TextStyle(fontWeight: FontWeight.w700),
@@ -133,14 +144,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: FutureBuilder<UserEntity>(
         future: _userProfileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: _primaryBlue));
+            return Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            );
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error loading profile: ${snapshot.error}'));
+            return Center(
+              child: Text('Error loading profile: ${snapshot.error}'),
+            );
           } else if (snapshot.hasData) {
             return _buildProfileContent(context, snapshot.data!);
           } else {
@@ -154,7 +171,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildProfileContent(BuildContext context, UserEntity user) {
     final String userName = user.displayName ?? 'User';
     final int userPoints = user.points;
-    final String profileImageLetter = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+    final String profileImageLetter = userName.isNotEmpty
+        ? userName[0].toUpperCase()
+        : '?';
 
     // Get photo URL from Auth
     final authUser = FirebaseAuth.instance.currentUser;
@@ -164,14 +183,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       children: [
         // --- HEADER SECTION (Immersive Gradient with Curve) ---
         Container(
-          padding: const EdgeInsets.only(top: 60, bottom: 40, left: 20, right: 20),
+          padding: const EdgeInsets.only(
+            top: 60,
+            bottom: 40,
+            left: 20,
+            right: 20,
+          ),
           width: double.infinity,
           decoration: BoxDecoration(
-            color: _primaryBlue,
+            color: Theme.of(context).colorScheme.primary,
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [_primaryBlue, const Color(0xFF2A4CA0)],
+              colors: [
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+              ],
             ),
           ),
           child: Column(
@@ -182,22 +209,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 height: 90,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.indigo.shade50,
-                  border: Border.all(color: _amberAccent, width: 3), // Amber Ring
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.secondary,
+                    width: 3,
+                  ), // Amber Ring
                   image: photoUrl != null
                       ? DecorationImage(
-                    image: NetworkImage(photoUrl),
-                    fit: BoxFit.cover,
-                  )
+                          image: NetworkImage(photoUrl),
+                          fit: BoxFit.cover,
+                        )
                       : null,
                 ),
                 child: photoUrl == null
                     ? Center(
-                  child: Text(
-                    profileImageLetter,
-                    style: TextStyle(color: _primaryBlue, fontSize: 40, fontWeight: FontWeight.w800),
-                  ),
-                )
+                        child: Text(
+                          profileImageLetter,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      )
                     : null,
               ),
               const SizedBox(height: 16),
@@ -205,26 +241,48 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               // Name
               Text(
                 userName,
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
               ),
               const SizedBox(height: 8),
 
               // Points Badge (Glassmorphic Pill)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onPrimary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.25)),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onPrimary.withValues(alpha: 0.25),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.stars_rounded, color: _amberAccent, size: 18),
+                    Icon(
+                      Icons.stars_rounded,
+                      color: Theme.of(context).colorScheme.secondary,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '$userPoints Points',
-                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -240,50 +298,51 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             children: [
               _buildSectionHeader("Account"),
               _buildCleanMenuItem(
-                  context,
-                  icon: Icons.person_outline_rounded,
-                  title: 'Personal Info',
-                  onTap: () => _navigateTo(context, PersonalInfoScreen(user: user))
+                context,
+                icon: Icons.person_outline_rounded,
+                title: 'Personal Info',
+                onTap: () =>
+                    _navigateTo(context, PersonalInfoScreen(user: user)),
               ),
               _buildCleanMenuItem(
-                  context,
-                  icon: Icons.history_edu_rounded,
-                  title: 'My Contributions',
-                  onTap: () {
-                    _navigateTo(context, const MyContributionsScreen());
-                  }
+                context,
+                icon: Icons.history_edu_rounded,
+                title: 'My Contributions',
+                onTap: () {
+                  _navigateTo(context, const MyContributionsScreen());
+                },
               ),
 
               const SizedBox(height: 20),
               _buildSectionHeader("App Settings"),
               _buildCleanMenuItem(
-                  context,
-                  icon: Icons.settings_outlined,
-                  title: 'General Settings',
-                  onTap: () => _navigateTo(context, const SettingsScreen())
+                context,
+                icon: Icons.settings_outlined,
+                title: 'General Settings',
+                onTap: () => _navigateTo(context, const SettingsScreen()),
               ),
               _buildCleanMenuItem(
-                  context,
-                  icon: Icons.headset_mic_outlined,
-                  title: 'Support',
-                  onTap: () => _navigateTo(context, const SupportScreen())
+                context,
+                icon: Icons.headset_mic_outlined,
+                title: 'Support',
+                onTap: () => _navigateTo(context, const SupportScreen()),
               ),
 
               const SizedBox(height: 20),
               _buildSectionHeader("Legal & More"),
               _buildCleanMenuItem(
-                  context,
-                  icon: Icons.leaderboard_outlined,
-                  title: 'Leaderboard',
-                  onTap: () {
-                    _navigateTo(context, const LeaderboardScreen());
-                  }
+                context,
+                icon: Icons.leaderboard_outlined,
+                title: 'Leaderboard',
+                onTap: () {
+                  _navigateTo(context, const LeaderboardScreen());
+                },
               ),
               _buildCleanMenuItem(
-                  context,
-                  icon: Icons.privacy_tip_outlined,
-                  title: 'Privacy & Policy',
-                  onTap: () => _navigateTo(context, const PrivacyPolicyScreen())
+                context,
+                icon: Icons.privacy_tip_outlined,
+                title: 'Privacy & Policy',
+                onTap: () => _navigateTo(context, const PrivacyPolicyScreen()),
               ),
 
               const SizedBox(height: 30),
@@ -299,7 +358,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
               // Version Text
               const SizedBox(height: 20),
-              Center(child: Text("v1.0.0", style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
+              Center(
+                child: Text(
+                  "v1.0.0",
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -313,28 +380,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-            color: Colors.grey.shade500,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
         ),
       ),
     );
   }
 
   // Updated to be "Clean" - No Shadows, Border styling, consistent radii
-  Widget _buildCleanMenuItem(BuildContext context, {
+  Widget _buildCleanMenuItem(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-    bool isDestructive = false
+    bool isDestructive = false,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16), // Slightly more rounded
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Material(
         color: Colors.transparent,
@@ -342,20 +410,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // Better touch target
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ), // Better touch target
             child: Row(
               children: [
-                // Icon Pill
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDestructive ? Colors.red.shade50 : Colors.indigo.shade50,
+                    color: isDestructive
+                        ? Theme.of(context).colorScheme.errorContainer
+                        : Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                      icon,
-                      color: isDestructive ? Colors.red.shade400 : _primaryBlue,
-                      size: 20
+                    icon,
+                    color: isDestructive
+                        ? Theme.of(context).colorScheme.onErrorContainer
+                        : Theme.of(context).colorScheme.onPrimaryContainer,
+                    size: 20,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -363,17 +437,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 // Text
                 Expanded(
                   child: Text(
-                      title,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDestructive ? Colors.red.shade400 : Colors.black87
-                      )
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDestructive
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
 
                 // Trailing Arrow
-                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade300),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
               ],
             ),
           ),

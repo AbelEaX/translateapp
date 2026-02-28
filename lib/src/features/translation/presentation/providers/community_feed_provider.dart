@@ -1,39 +1,42 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';
+import 'package:flutter/material.dart';
+import 'package:translate/src/features/community/domain/entities/community_model.dart';
+import 'package:translate/src/features/community/domain/usecases/get_communities.dart';
+import 'package:translate/src/features/community/domain/usecases/join_community.dart';
+import 'package:translate/src/features/community/domain/usecases/leave_community.dart';
+import 'package:translate/src/features/translation/domain/entities/translation_entry.dart';
 import 'package:translate/src/features/translation/domain/usecases/get_community_translations.dart';
 import 'package:translate/src/features/translation/domain/usecases/update_translation_score.dart';
-import 'package:translate/src/features/community/domain/entities/community_model.dart';
 
 class CommunityFeedProvider extends ChangeNotifier {
-  // Dependencies
+  // Use-cases (no direct Firebase access)
   final GetCommunityTranslations getTranslationsUseCase;
   final UpdateTranslationScore updateScoreUseCase;
+  final GetCommunities getCommunitiesUseCase;
+  final JoinCommunity joinCommunityUseCase;
+  final LeaveCommunity leaveCommunityUseCase;
 
-  // The specific Firestore instance (for 'gotranslate' DB)
-  final FirebaseFirestore firestore;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Real-time Subscription
   StreamSubscription<List<TranslationEntry>>? _feedSubscription;
 
-  // --- Constructor ---
   CommunityFeedProvider({
     required this.getTranslationsUseCase,
     required this.updateScoreUseCase,
-    required this.firestore,
+    required this.getCommunitiesUseCase,
+    required this.joinCommunityUseCase,
+    required this.leaveCommunityUseCase,
   }) {
     fetchTranslations();
   }
 
   // --- Search State ---
   String _searchQuery = '';
-  List<TranslationEntry> _allTranslations = []; // Stores the raw, unfiltered list
+  List<TranslationEntry> _allTranslations = [];
 
   // --- State Variables ---
-  List<TranslationEntry> _translations = []; // Stores the list currently shown in UI
+  List<TranslationEntry> _translations = [];
   List<TranslationEntry> get translations => _translations;
 
   List<Community> _joinedCommunities = [];
@@ -57,10 +60,8 @@ class CommunityFeedProvider extends ChangeNotifier {
 
   void _applySearchFilter() {
     if (_searchQuery.isEmpty) {
-      // No search? Show everything.
       _translations = List.from(_allTranslations);
     } else {
-      // Filter logic
       final query = _searchQuery.toLowerCase();
       _translations = _allTranslations.where((t) {
         return t.sourceText.toLowerCase().contains(query) ||
@@ -71,7 +72,7 @@ class CommunityFeedProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Community Management Methods (Firestore Implementation) ---
+  // --- Community Management (via Use-Cases) ---
 
   Future<List<Community>> fetchAllCommunities() async {
     _isLoading = true;
@@ -79,38 +80,15 @@ class CommunityFeedProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final querySnapshot = await firestore.collection('communities').get();
-      var fetchedCommunities = querySnapshot.docs
-          .map((doc) => Community.fromFirestore(doc))
-          .toList();
+      final userId = _auth.currentUser?.uid;
+      final communities = await getCommunitiesUseCase.call(userId);
 
-      final user = _auth.currentUser;
-      if (user != null) {
-        final joinedSnapshot = await firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('joined_communities')
-            .get();
+      _allCommunities = communities;
+      _joinedCommunities = communities.where((c) => c.isJoined).toList();
 
-        final joinedIds = joinedSnapshot.docs.map((doc) => doc.id).toSet();
-
-        fetchedCommunities = fetchedCommunities.map((c) {
-          if (joinedIds.contains(c.id)) {
-            return c.copyWith(isJoined: true);
-          }
-          return c;
-        }).toList();
-
-        _joinedCommunities = fetchedCommunities.where((c) => c.isJoined).toList();
-      } else {
-        _joinedCommunities = [];
-      }
-
-      _allCommunities = fetchedCommunities;
       _isLoading = false;
       notifyListeners();
       return _allCommunities;
-
     } catch (e) {
       _error = 'Failed to fetch communities: $e';
       _isLoading = false;
@@ -124,33 +102,22 @@ class CommunityFeedProvider extends ChangeNotifier {
     if (user == null) return;
 
     try {
-      await firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('joined_communities')
-          .doc(communityId)
-          .set({'joinedAt': FieldValue.serverTimestamp()});
-
-      await firestore
-          .collection('communities')
-          .doc(communityId)
-          .update({'memberCount': FieldValue.increment(1)});
+      await joinCommunityUseCase.call(user.uid, communityId);
 
       final index = _allCommunities.indexWhere((c) => c.id == communityId);
       if (index != -1) {
-        final updatedCommunity = _allCommunities[index].copyWith(
+        final updated = _allCommunities[index].copyWith(
           isJoined: true,
           memberCount: _allCommunities[index].memberCount + 1,
         );
-        _allCommunities[index] = updatedCommunity;
-
+        _allCommunities[index] = updated;
         if (!_joinedCommunities.any((c) => c.id == communityId)) {
-          _joinedCommunities.add(updatedCommunity);
+          _joinedCommunities.add(updated);
         }
       }
       notifyListeners();
     } catch (e) {
-      debugPrint("Error joining community: $e");
+      debugPrint('Error joining community: $e');
       _error = 'Failed to join community';
       notifyListeners();
     }
@@ -161,39 +128,32 @@ class CommunityFeedProvider extends ChangeNotifier {
     if (user == null) return;
 
     try {
-      await firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('joined_communities')
-          .doc(communityId)
-          .delete();
-
-      await firestore
-          .collection('communities')
-          .doc(communityId)
-          .update({'memberCount': FieldValue.increment(-1)});
+      await leaveCommunityUseCase.call(user.uid, communityId);
 
       final index = _allCommunities.indexWhere((c) => c.id == communityId);
       if (index != -1) {
-        final updatedCommunity = _allCommunities[index].copyWith(
+        final updated = _allCommunities[index].copyWith(
           isJoined: false,
-          memberCount: (_allCommunities[index].memberCount - 1).clamp(0, 999999),
+          memberCount: (_allCommunities[index].memberCount - 1).clamp(
+            0,
+            999999,
+          ),
         );
-        _allCommunities[index] = updatedCommunity;
+        _allCommunities[index] = updated;
         _joinedCommunities.removeWhere((c) => c.id == communityId);
       }
       notifyListeners();
     } catch (e) {
-      debugPrint("Error leaving community: $e");
+      debugPrint('Error leaving community: $e');
       _error = 'Failed to leave community';
       notifyListeners();
     }
   }
 
-  // --- Real-Time Data Fetching ---
+  // --- Real-Time Feed ---
+
   Future<void> fetchTranslations() async {
     _feedSubscription?.cancel();
-
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -201,12 +161,11 @@ class CommunityFeedProvider extends ChangeNotifier {
     try {
       final stream = await getTranslationsUseCase.call();
       _feedSubscription = stream.listen(
-            (newTranslations) {
-          _allTranslations = newTranslations; // 1. Store raw data
-          _applySearchFilter();               // 2. Filter it based on current query
+        (newTranslations) {
+          _allTranslations = newTranslations;
+          _applySearchFilter();
           _isLoading = false;
           _error = null;
-          // notifyListeners is called inside _applySearchFilter
         },
         onError: (e) {
           _error = 'Failed to load community feed: $e';
@@ -221,8 +180,71 @@ class CommunityFeedProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateScore(String translationId, String userId, int scoreChange) async {
+  // --- Voting (Optimistic UI) ---
+
+  Future<void> updateScore(
+    String translationId,
+    String userId,
+    int scoreChange,
+  ) async {
     if (translationId.isEmpty) return;
+
+    final int indexAll = _allTranslations.indexWhere(
+      (t) => t.id == translationId,
+    );
+    if (indexAll == -1) return;
+
+    final entry = _allTranslations[indexAll];
+    final int previousVote = entry.userVoteStatus;
+
+    int upChange = 0;
+    int downChange = 0;
+    int newVoteStatus = 0;
+
+    if (scoreChange == 1) {
+      if (previousVote == 1) {
+        upChange = -1;
+        newVoteStatus = 0;
+      } else if (previousVote == -1) {
+        downChange = -1;
+        upChange = 1;
+        newVoteStatus = 1;
+      } else {
+        upChange = 1;
+        newVoteStatus = 1;
+      }
+    } else if (scoreChange == -1) {
+      if (previousVote == -1) {
+        downChange = -1;
+        newVoteStatus = 0;
+      } else if (previousVote == 1) {
+        upChange = -1;
+        downChange = 1;
+        newVoteStatus = -1;
+      } else {
+        downChange = 1;
+        newVoteStatus = -1;
+      }
+    }
+
+    final updatedEntry = entry.copyWith(
+      userVoteStatus: newVoteStatus,
+      upvotes: entry.upvotes + upChange,
+      downvotes: entry.downvotes + downChange,
+      score: entry.score + (upChange - downChange),
+    );
+
+    _allTranslations[indexAll] = updatedEntry;
+
+    final int indexFiltered = _translations.indexWhere(
+      (t) => t.id == translationId,
+    );
+    if (indexFiltered != -1) {
+      _translations[indexFiltered] = updatedEntry;
+    }
+
+    notifyListeners();
+
     try {
       await updateScoreUseCase.call(
         translationId: translationId,
@@ -230,6 +252,11 @@ class CommunityFeedProvider extends ChangeNotifier {
         scoreChange: scoreChange,
       );
     } catch (e) {
+      debugPrint('Voting failed, reverting optimistic update: $e');
+      _allTranslations[indexAll] = entry;
+      if (indexFiltered != -1) {
+        _translations[indexFiltered] = entry;
+      }
       _error = 'Failed to update vote: $e';
       notifyListeners();
     }

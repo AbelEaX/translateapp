@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:translate/src/features/translation/presentation/providers/community_feed_provider.dart';
 import 'package:translate/src/features/translation/presentation/widgets/translation_card.dart';
 
-import '../widgets/community_feed.dart'; // Assuming TranslationCard is exported from here
-
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
 
@@ -69,11 +67,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                     children: [
                       Icon(Icons.people_outline, size: 60, color: Colors.grey),
                       SizedBox(height: 16),
-                      Text('No Community Submissions Yet!',
+                      Text(
+                        'No Community Submissions Yet!',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 18, color: Colors.grey),
                       ),
-                      Text('Be the first to submit a translation.',
+                      Text(
+                        'Be the first to submit a translation.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 14, color: Colors.grey),
                       ),

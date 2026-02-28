@@ -1,5 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/entities/TranslationEntry.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../domain/entities/translation_entry.dart';
 
 class TranslationModel extends TranslationEntry {
   const TranslationModel({

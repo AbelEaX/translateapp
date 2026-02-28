@@ -7,7 +7,8 @@ class TranslationSubmissionForm extends StatefulWidget {
   const TranslationSubmissionForm({super.key});
 
   @override
-  State<TranslationSubmissionForm> createState() => _TranslationSubmissionFormState();
+  State<TranslationSubmissionForm> createState() =>
+      _TranslationSubmissionFormState();
 }
 
 class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
@@ -43,8 +44,23 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
     'Samia',
   ];
 
-  final List<String> _contexts = ['General', 'Medical', 'Legal', 'Marketplace', 'Technology', 'Religious'];
-  final List<String> _dialects = ['Standard', 'Buddu', 'Kooki', 'Lango', 'Padhola', 'Kigezi', 'Tooro'];
+  final List<String> _contexts = [
+    'General',
+    'Medical',
+    'Legal',
+    'Marketplace',
+    'Technology',
+    'Religious',
+  ];
+  final List<String> _dialects = [
+    'Standard',
+    'Buddu',
+    'Kooki',
+    'Lango',
+    'Padhola',
+    'Kigezi',
+    'Tooro',
+  ];
 
   // Language Code Mapper for ML Kit (BCP-47)
   final Map<String, String> _langCodeMap = {
@@ -80,8 +96,13 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text("Select Correct Target Language",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800)
+                  child: Text(
+                    "Select Correct Target Language",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -92,12 +113,29 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                       final lang = _languages[index];
                       final isSelected = lang == _selectedTargetLang;
                       return ListTile(
-                        leading: Icon(Icons.language, color: isSelected ? const Color(0xFF1E3A8A) : Colors.grey),
-                        title: Text(lang, style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? const Color(0xFF1E3A8A) : Colors.black87
-                        )),
-                        trailing: isSelected ? const Icon(Icons.check_circle, color: Color(0xFF1E3A8A)) : null,
+                        leading: Icon(
+                          Icons.language,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).iconTheme.color,
+                        ),
+                        title: Text(
+                          lang,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? Icon(
+                                Icons.check_circle,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : null,
                         onTap: () {
                           setState(() => _selectedTargetLang = lang);
                           Navigator.pop(context); // Close picker
@@ -115,13 +153,18 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
   }
 
   // --- LAYER 1: ML KIT VERIFICATION ---
-  Future<bool> _verifyLanguageWithML(String text, String selectedLangName) async {
+  Future<bool> _verifyLanguageWithML(
+    String text,
+    String selectedLangName,
+  ) async {
     final expectedCode = _langCodeMap[selectedLangName];
     if (expectedCode == null) return true;
 
     try {
       final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.5);
-      final String detectedCode = await languageIdentifier.identifyLanguage(text);
+      final String detectedCode = await languageIdentifier.identifyLanguage(
+        text,
+      );
       languageIdentifier.close();
 
       if (detectedCode != 'und' && detectedCode != expectedCode) {
@@ -146,20 +189,33 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
 
     // --- 2. LAYER 1: INTELLIGENT MISMATCH CHECK (ML KIT) ---
     if (_targetController.text.length > 10) {
-      final isMatch = await _verifyLanguageWithML(_targetController.text, _selectedTargetLang);
+      final isMatch = await _verifyLanguageWithML(
+        _targetController.text,
+        _selectedTargetLang,
+      );
 
       if (!isMatch && mounted) {
         // SHOW WARNING DIALOG
         final bool? overrideWarning = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            backgroundColor: Colors.red.shade50,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
             title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Theme.of(context).colorScheme.error,
+                ),
                 const SizedBox(width: 8),
-                const Expanded(child: Text("Possible Mismatch", style: TextStyle(fontSize: 18))),
+                const Expanded(
+                  child: Text(
+                    "Possible Mismatch",
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ),
               ],
             ),
             content: Text(
@@ -176,7 +232,9 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true), // Proceed
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
                 child: const Text("Ignore Warning"),
               ),
             ],
@@ -192,32 +250,57 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
       final bool? confirmFinal = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text("Confirm Submission", style: TextStyle(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            "Confirm Submission",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("You are contributing to the:", style: TextStyle(color: Colors.grey)),
+              Text(
+                "You are contributing to the:",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A8A).withOpacity(0.1),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF1E3A8A).withOpacity(0.2)),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       _selectedTargetLang.toUpperCase(),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A)),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     Text(
                       "Dictionary",
-                      style: TextStyle(fontSize: 12, color: Colors.indigo.shade300),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.6),
+                      ),
                     ),
                   ],
                 ),
@@ -232,15 +315,19 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                 Navigator.pop(ctx, false); // Close confirmation
                 _openLanguagePicker(); // [ACTION] Let user change selection
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.grey),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+              ),
               child: const Text("Check Again"), // Implies opening the list
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true), // Proceed
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text("Yes, Submit"),
             ),
@@ -270,11 +357,17 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
         _sourceController.clear();
         _targetController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(backgroundColor: Colors.green, content: Text('Translation submitted successfully!')),
+          const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('Translation submitted successfully!'),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: Colors.red, content: Text(provider.error ?? 'Submission failed')),
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            content: Text(provider.error ?? 'Submission failed'),
+          ),
         );
       }
     }
@@ -282,8 +375,10 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.select<SubmissionProvider, bool>((p) => p.isLoading);
-    final primaryColor = const Color(0xFF1E3A8A);
+    final isLoading = context.select<SubmissionProvider, bool>(
+      (p) => p.isLoading,
+    );
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 40, 20, 100),
@@ -293,12 +388,19 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
           // --- HEADER ---
           Text(
             'Contribute',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: primaryColor),
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: primaryColor,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Help your community grow by adding a new translation.',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 30),
 
@@ -306,10 +408,17 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 4)),
+                BoxShadow(
+                  color: Theme.of(context).shadowColor.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
             child: Column(
@@ -323,7 +432,8 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                         value: _selectedSourceLang,
                         items: _languages,
                         icon: Icons.translate,
-                        onChanged: (val) => setState(() => _selectedSourceLang = val!),
+                        onChanged: (val) =>
+                            setState(() => _selectedSourceLang = val!),
                       ),
                     ),
                     Padding(
@@ -331,10 +441,15 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.secondary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.swap_horiz_rounded, color: Colors.amber.shade700),
+                        child: Icon(
+                          Icons.swap_horiz_rounded,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -343,7 +458,8 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                         value: _selectedTargetLang,
                         items: _languages,
                         icon: Icons.language,
-                        onChanged: (val) => setState(() => _selectedTargetLang = val!),
+                        onChanged: (val) =>
+                            setState(() => _selectedTargetLang = val!),
                       ),
                     ),
                   ],
@@ -359,7 +475,8 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                         items: _contexts,
                         icon: Icons.category_outlined,
                         isSmall: true,
-                        onChanged: (val) => setState(() => _selectedContext = val!),
+                        onChanged: (val) =>
+                            setState(() => _selectedContext = val!),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -370,7 +487,8 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                         items: _dialects,
                         icon: Icons.record_voice_over_outlined,
                         isSmall: true,
-                        onChanged: (val) => setState(() => _selectedDialect = val!),
+                        onChanged: (val) =>
+                            setState(() => _selectedDialect = val!),
                       ),
                     ),
                   ],
@@ -385,11 +503,17 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               boxShadow: [
-                BoxShadow(color: Colors.amber.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5)),
-                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 5, offset: const Offset(0, 2)),
+                BoxShadow(
+                  color: Theme.of(context).shadowColor.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
             child: Row(
@@ -399,7 +523,7 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
                   width: 4,
                   height: 160,
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade400,
+                    color: Theme.of(context).colorScheme.secondary,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -436,21 +560,35 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
               onPressed: isLoading ? null : _submitData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                shadowColor: primaryColor.withOpacity(0.4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: isLoading
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                  ? SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        strokeWidth: 2.5,
+                      ),
+                    )
                   : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.send_rounded, size: 20),
-                  SizedBox(width: 8),
-                  Text('Submit Contribution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              ),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.send_rounded, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Submit Contribution',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -470,25 +608,39 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodySmall?.color,
+          ),
+        ),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: items.contains(value) ? value : items.first,
               isExpanded: true,
-              icon: Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: Colors.grey.shade600),
-              dropdownColor: Colors.white,
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 20,
+                color: Theme.of(context).iconTheme.color,
+              ),
+              dropdownColor: Theme.of(context).cardColor,
               style: TextStyle(
-                  color: Colors.black87,
-                  fontSize: isSmall ? 13 : 14,
-                  fontWeight: isSmall ? FontWeight.w500 : FontWeight.w600),
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: isSmall ? 13 : 14,
+                fontWeight: isSmall ? FontWeight.w500 : FontWeight.w600,
+              ),
               items: items.map((String val) {
                 return DropdownMenuItem(value: val, child: Text(val));
               }).toList(),
@@ -509,7 +661,16 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isHero ? const Color(0xFF1E3A8A) : Colors.grey.shade600)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isHero
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).textTheme.bodySmall?.color,
+          ),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -518,18 +679,24 @@ class _TranslationSubmissionFormState extends State<TranslationSubmissionForm> {
           style: TextStyle(
             fontSize: isHero ? 18 : 16,
             fontWeight: isHero ? FontWeight.bold : FontWeight.normal,
-            color: isHero ? const Color(0xFF1E3A8A) : Colors.black87,
+            color: isHero
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface,
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: isHero ? 16 : 14, fontWeight: FontWeight.normal),
+            hintStyle: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: isHero ? 16 : 14,
+              fontWeight: FontWeight.normal,
+            ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: Theme.of(context).cardColor,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 4),
           ),
         ),
-        if (!isHero) Divider(color: Colors.grey.shade200),
+        if (!isHero) Divider(color: Theme.of(context).dividerColor),
       ],
     );
   }

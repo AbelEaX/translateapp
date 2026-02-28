@@ -7,7 +7,8 @@ class CommunityDiscoveryScreen extends StatefulWidget {
   const CommunityDiscoveryScreen({super.key});
 
   @override
-  State<CommunityDiscoveryScreen> createState() => _CommunityDiscoveryScreenState();
+  State<CommunityDiscoveryScreen> createState() =>
+      _CommunityDiscoveryScreenState();
 }
 
 class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
@@ -16,10 +17,8 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
   @override
   void initState() {
     super.initState();
-    // Use Future.microtask to avoid "setState during build" error.
-    _communitiesFuture = Future.microtask(() =>
-        Provider.of<CommunityFeedProvider>(context, listen: false).fetchAllCommunities()
-    );
+    final provider = Provider.of<CommunityFeedProvider>(context, listen: false);
+    _communitiesFuture = Future.microtask(() => provider.fetchAllCommunities());
   }
 
   @override
@@ -28,11 +27,19 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Discover Local Communities', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E3A8A),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          'Discover Local Communities',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.onPrimary,
+        ),
       ),
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: FutureBuilder<List<Community>>(
         future: _communitiesFuture,
         builder: (context, snapshot) {
@@ -40,12 +47,22 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error loading communities: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+            return Center(
+              child: Text(
+                'Error loading communities: ${snapshot.error}',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            );
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-                child: Text('No communities available right now.',
-                    style: TextStyle(color: Colors.black54)));
+            return Center(
+              child: Text(
+                'No communities available right now.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            );
           }
 
           final allCommunities = snapshot.data!;
@@ -70,7 +87,11 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
     );
   }
 
-  Widget _buildCommunityCard(BuildContext context, CommunityFeedProvider provider, Community community) {
+  Widget _buildCommunityCard(
+    BuildContext context,
+    CommunityFeedProvider provider,
+    Community community,
+  ) {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(top: 10, bottom: 12),
@@ -86,19 +107,32 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
                 Expanded(
                   child: Text(
                     community.name,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
                 // Display member count badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.shade50,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '${community.memberCount} members',
-                    style: TextStyle(fontSize: 12, color: Colors.indigo.shade700, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -106,7 +140,10 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
             const SizedBox(height: 4),
             Text(
               community.description,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             Align(
@@ -128,19 +165,33 @@ class _CommunityDiscoveryScreenState extends State<CommunityDiscoveryScreen> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: community.isJoined ? Colors.red.shade700 : Colors.white,
-                  backgroundColor: community.isJoined ? Colors.red.shade100 : Colors.green.shade600,
+                  foregroundColor: community.isJoined
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onPrimary,
+                  backgroundColor: community.isJoined
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.error.withValues(alpha: 0.1)
+                      : Theme.of(context).colorScheme.primary,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    side: community.isJoined ? BorderSide(color: Colors.red.shade300) : BorderSide.none,
+                    side: community.isJoined
+                        ? BorderSide(color: Theme.of(context).colorScheme.error)
+                        : BorderSide.none,
                   ),
                 ),
-                child: Text(community.isJoined ? 'Leave' : 'Join Community',
+                child: Text(
+                  community.isJoined ? 'Leave' : 'Join Community',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: community.isJoined ? Colors.red.shade700 : Colors.white,
+                    color: community.isJoined
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.onPrimary,
                   ),
                 ),
               ),

@@ -3,24 +3,26 @@ import 'package:flutter/material.dart';
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
-  // Theme Constants
-  final Color _primaryBlue = const Color(0xFF1E3A8A);
-  final Color _amberAccent = Colors.amber;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Privacy & Policy",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        backgroundColor: _primaryBlue,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -34,7 +36,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: _primaryBlue,
+                color: Theme.of(context).colorScheme.primary,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -42,27 +44,35 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onPrimary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.security_rounded, size: 40, color: _amberAccent),
+                    child: Icon(
+                      Icons.security_rounded,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     "Your Privacy Matters",
                     style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     "Last Updated: November 2025",
                     style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade100,
-                        fontWeight: FontWeight.w500
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onPrimary.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -73,18 +83,21 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
             // --- POLICY SECTIONS ---
             _buildSection(
+              context,
               "1. Information We Collect",
               "We only ask for personal information when we truly need it to provide a service to you. We collect it by fair and lawful means, with your knowledge and consent.",
               Icons.person_search_rounded,
             ),
 
             _buildSection(
+              context,
               "2. Data Usage",
               "We use your data to improve translation accuracy and community features. We do not share any personally identifying information publicly or with third-parties, except when required to by law.",
               Icons.data_usage_rounded,
             ),
 
             _buildSection(
+              context,
               "3. Security",
               "We protect your data within commercially acceptable means to prevent loss and theft, as well as unauthorized access, disclosure, copying, use or modification.",
               Icons.lock_outline_rounded,
@@ -96,7 +109,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
             Center(
               child: Text(
                 "GoTranslate Inc. © 2025",
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -106,14 +123,19 @@ class PrivacyPolicyScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(String title, String content, IconData icon) {
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    String content,
+    IconData icon,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,10 +143,14 @@ class PrivacyPolicyScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.indigo.shade50,
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: _primaryBlue, size: 20),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -134,18 +160,18 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: _primaryBlue
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   content,
                   style: TextStyle(
-                      fontSize: 14,
-                      height: 1.6,
-                      color: Colors.grey.shade600
+                    fontSize: 14,
+                    height: 1.6,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],

@@ -1,149 +1,152 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:translate/src/core/config/constants.dart';
-import 'package:translate/src/features/auth/data/datasources/auth_remote_datasource.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:translate/firebase_options.dart';
+import 'package:translate/src/core/di/providers.dart';
+import 'package:translate/src/core/di/service_locator.dart';
+import 'package:translate/src/core/routing/app_router.dart';
+import 'package:translate/src/core/theme/app_theme.dart';
+import 'package:translate/src/core/theme/theme_provider.dart';
+import 'package:translate/src/notifications/presentation/providers/notification_provider.dart';
+import 'package:translate/src/notifications/services/notification_service.dart';
 
-// --- AUTH DEPENDENCIES ---
-import 'package:translate/src/features/auth/data/repostitories/auth_repository_impl.dart';
-import 'package:translate/src/features/auth/presentation/providers/auth_provider.dart';
-import 'package:translate/src/features/auth/domain/usecases/sign_in_with_google.dart';
-
-// --- AUTH UI IMPORTS ---
-import 'package:translate/src/features/auth/presentation/screens/onboarding_screen.dart';
-
-// --- TRANSLATION DEPENDENCIES ---
-import 'package:translate/src/features/translation/data/datasources/translation_remote_datasource.dart';
-import 'package:translate/src/features/translation/data/repostitories/translation_repository_impl.dart';
-import 'package:translate/src/features/translation/domain/usecases/submit_translation.dart';
-import 'package:translate/src/features/translation/presentation/providers/navigation_provider.dart';
-import 'package:translate/src/features/translation/presentation/providers/submission_provider.dart';
-
-// --- COMMUNITY FEED DEPENDENCIES ---
-import 'package:translate/src/features/translation/domain/usecases/get_community_translations.dart';
-import 'package:translate/src/features/translation/domain/usecases/update_translation_score.dart';
-import 'package:translate/src/features/translation/presentation/providers/community_feed_provider.dart';
-
-// Import UI
-import 'package:translate/src/features/translation/presentation/screens/app_shell.dart';
-
-// Import generated Firebase options
-import 'firebase_options.dart';
-
+/// Top-level background message handler — must be a free function.
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  debugPrint('[FCM background] ${message.notification?.title}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // FIX: Check if Firebase is already initialized to prevent Hot Restart crashes
+  // Register background handler BEFORE Firebase.initializeApp
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } else {
-    // If already initialized (hot restart), rely on existing instance
     Firebase.app();
   }
 
-  runApp(const AppRoot());
+  final sl = await ServiceLocator.configure();
+  final prefs = await SharedPreferences.getInstance();
+  final themeProvider = ThemeProvider(prefs);
+
+  runApp(AppRoot(sl: sl, themeProvider: themeProvider));
 }
 
-// --- APP ROOT (COMPOSITION ROOT) ---
+class AppRoot extends StatefulWidget {
+  final ServiceLocator sl;
+  final ThemeProvider themeProvider;
 
-class AppRoot extends StatelessWidget {
-  const AppRoot({super.key});
+  const AppRoot({super.key, required this.sl, required this.themeProvider});
+
+  @override
+  State<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<AppRoot> {
+  // Created once — never recreated on theme change.
+  late final _router = AppRouter.router(
+    FirebaseAuth.instance.authStateChanges(),
+  );
 
   @override
   Widget build(BuildContext context) {
-
-    // --- FIRESTORE CUSTOM DATABASE INITIALIZATION ---
-    // We move this INSIDE build or a helper to ensure safe access after initialization.
-    // Using Firebase.app() ensures we get the default app instance safely.
-    final FirebaseApp app = Firebase.app();
-
-    final FirebaseFirestore gotranslateDb = FirebaseFirestore.instanceFor(
-      app: app,
-      databaseId: TRANSLATION_FIRESTORE_DB_ID,
-    );
-
-    // --- AUTH DI SETUP ---
-    final authRemoteDataSource = AuthRemoteDataSourceImpl(
-      firebaseAuth: FirebaseAuth.instance,
-      googleSignIn: GoogleSignIn(),
-    );
-    final authRepository = AuthRepositoryImpl(
-      remoteDataSource: authRemoteDataSource,
-    );
-    final signInWithGoogle = SignInWithGoogle(authRepository);
-
-    // --- TRANSLATION DI SETUP ---
-    final translationRemoteDataSource = TranslationRemoteDataSourceImpl(
-      firestore: gotranslateDb,
-    );
-
-    final translationRepository = TranslationRepositoryImpl(
-      remoteDataSource: translationRemoteDataSource,
-      firestore: gotranslateDb,
-    );
-
-    // --- USE CASES ---
-    final submitUseCase = SubmitTranslation(translationRepository);
-    final getCommunityTranslations = GetCommunityTranslations(translationRepository);
-    final updateTranslationScore = UpdateTranslationScore(translationRepository);
-
-    // --- PROVIDER SETUP ---
     return MultiProvider(
       providers: [
-        // Inside MultiProvider...
-        ChangeNotifierProvider(create: (_) => NavigationProvider()),
-        // 1. Auth Provider
-        ChangeNotifierProvider(
-          create: (_) => AuthProvider(
-            authRepository: authRepository,
-            signInWithGoogle: signInWithGoogle,
-          ),
-        ),
-        // 2. Submission Provider
-        ChangeNotifierProvider(
-          create: (context) => SubmissionProvider(
-            submitTranslationUseCase: submitUseCase,
-            authProvider: Provider.of<AuthProvider>(context, listen: false),
-          ),
-        ),
-        // 3. Community Feed Provider
-        ChangeNotifierProvider(
-          create: (_) => CommunityFeedProvider(
-            getTranslationsUseCase: getCommunityTranslations,
-            updateScoreUseCase: updateTranslationScore,
-            firestore: gotranslateDb, // Injecting custom DB
-          ),
-        ),
+        ChangeNotifierProvider.value(value: widget.themeProvider),
+        ...AppProviders.from(widget.sl),
       ],
-      child: MaterialApp(
-        title: 'GoTranslate',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.indigo,
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4C579E)),
-        ),
-        home: StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-            if (snapshot.hasData && snapshot.data != null) {
-              return const AppShell();
-            }
-            return const OnboardingScreen();
+      child: _NotificationInitializer(
+        child: Consumer<ThemeProvider>(
+          builder: (context, theme, _) {
+            return MaterialApp.router(
+              title: 'GoTranslate',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: theme.themeMode,
+              routerConfig: _router,
+            );
           },
         ),
       ),
     );
   }
+}
+
+/// Listens to Firebase auth state and initialises / tears-down the
+/// notification service and provider accordingly.
+class _NotificationInitializer extends StatefulWidget {
+  final Widget child;
+  const _NotificationInitializer({required this.child});
+
+  @override
+  State<_NotificationInitializer> createState() =>
+      _NotificationInitializerState();
+}
+
+class _NotificationInitializerState extends State<_NotificationInitializer> {
+  StreamSubscription<User?>? _authSubscription;
+  String? _initializedUid;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe once — didChangeDependencies is safe for Provider.of access.
+    _authSubscription ??= FirebaseAuth.instance.authStateChanges().listen(
+      _onAuthStateChanged,
+    );
+  }
+
+  void _onAuthStateChanged(User? user) {
+    if (!mounted) return;
+
+    final notifProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
+    final notifService = Provider.of<NotificationService>(
+      context,
+      listen: false,
+    );
+
+    if (user != null && _initializedUid != user.uid) {
+      _initializedUid = user.uid;
+
+      // Ensure a Firestore profile doc exists for this user so others can
+      // resolve their name on translation cards (merge: true = safe).
+      FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'displayName': user.displayName ?? '',
+        'email': user.email ?? '',
+        'photoURL': user.photoURL ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      notifService.initialize(user.uid);
+      notifProvider.subscribeForUser(user.uid);
+    } else if (user == null && _initializedUid != null) {
+      _initializedUid = null;
+      notifProvider.unsubscribe();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

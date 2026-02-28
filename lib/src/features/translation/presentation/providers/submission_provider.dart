@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
-import 'package:translate/src/features/translation/domain/entities/TranslationEntry.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:translate/src/features/translation/domain/entities/translation_entry.dart';
 import 'package:translate/src/features/translation/domain/usecases/submit_translation.dart';
 import 'package:uuid/uuid.dart';
 

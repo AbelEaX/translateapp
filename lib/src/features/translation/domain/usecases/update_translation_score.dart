@@ -1,4 +1,4 @@
-import 'package:translate/src/features/translation/domain/repositories/TranslationRepository.dart';
+﻿import 'package:translate/src/features/translation/domain/repositories/translation_repository.dart';
 
 class UpdateTranslationScore {
   final TranslationRepository repository;
